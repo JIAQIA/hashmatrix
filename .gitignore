@@ -1,0 +1,45 @@
+# ===== 敏感材料：标书原文/甲方材料，仅本地留存，不入公开仓 =====
+docs/*.docx
+docs/*.doc
+docs/*.pdf
+docs/**/*.docx
+*.标书.*
+
+# ===== OS / IDE =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# ===== Java =====
+target/
+build/
+*.class
+*.log
+.gradle/
+hs_err_pid*
+
+# ===== Node / TS =====
+node_modules/
+dist/
+.next/
+out/
+*.tsbuildinfo
+.pnpm-store/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# ===== 本地环境 / 机密 =====
+.env
+.env.local
+*.local
+secrets/
+*.pem
+*.key

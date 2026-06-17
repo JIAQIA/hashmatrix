@@ -1,0 +1,24 @@
+[submodule "services/webui"]
+	path = services/webui
+	url = https://github.com/JIAQIA/hashmatrix-webui.git
+[submodule "services/gateway"]
+	path = services/gateway
+	url = https://github.com/JIAQIA/hashmatrix-gateway.git
+[submodule "services/governance"]
+	path = services/governance
+	url = https://github.com/JIAQIA/hashmatrix-governance.git
+[submodule "services/security"]
+	path = services/security
+	url = https://github.com/JIAQIA/hashmatrix-security.git
+[submodule "services/tools-bi"]
+	path = services/tools-bi
+	url = https://github.com/JIAQIA/hashmatrix-tools-bi.git
+[submodule "services/privacy"]
+	path = services/privacy
+	url = https://github.com/JIAQIA/hashmatrix-privacy.git
+[submodule "services/data-foundation"]
+	path = services/data-foundation
+	url = https://github.com/JIAQIA/hashmatrix-data-foundation.git
+[submodule "services/platform-common"]
+	path = services/platform-common
+	url = https://github.com/JIAQIA/hashmatrix-platform-common.git
