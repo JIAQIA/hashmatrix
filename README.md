@@ -20,7 +20,7 @@
 
 | 子仓 | 层 / 位置 | 职责（一句话） | 骨架技术选型（首选） |
 |--|--|--|--|
-| [`webui`](./services/webui) | 接入层 · 唯一前端 | 控制台 + 数据大屏 + 编排画布 | React 19 · Vite · AntD v6 · AntV（**已定稿**） |
+| [`webui`](./services/webui) | 接入层 · 唯一前端仓 | **同仓双 app**：console（使用平面：控制台/大屏/画布）+ admin（管理平面：运营控制台） | React 19 · Vite · AntD v6 · AntV（**已定稿**） |
 | [`gateway`](./services/gateway) | 南北向网关 | 路由/限流/鉴权/审计 · 注入租户头 | APISIX · Keycloak OIDC |
 | [`governance`](./services/governance) | 应用层 · 数据治理 | 元数据/血缘/质量/数据标准 | Spring Boot · OpenMetadata · PostgreSQL |
 | [`security`](./services/security) | 应用层 · 数据安全 | 分类分级/标签/审批/审计 | Spring Boot · Flowable · Prometheus |
@@ -44,7 +44,7 @@ hashmatrix/                     # 主仓：公共依赖 + 部署运维
 ├── contracts/                  # ICD：OpenAPI/protobuf 接口契约
 ├── docs/                       # 架构与研制文档（敏感材料不入库）
 └── services/                   # ↓ 各为独立 git submodule
-    ├── webui/                  → hashmatrix-webui            接入层 · 唯一前端 · TS
+    ├── webui/                  → hashmatrix-webui            接入层 · 唯一前端仓(双app:console+admin) · TS
     ├── gateway/                → hashmatrix-gateway          南北向网关 · APISIX
     ├── governance/             → hashmatrix-governance       数据治理分系统 · Java
     ├── security/               → hashmatrix-security         数据安全分系统 · Java
