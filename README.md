@@ -6,7 +6,7 @@
 - 部署：Kubernetes + Helm（umbrella chart）
 - 架构设计见 [`docs/architecture/`](./docs/architecture/README.md)
 
-> 各子项目的**技术选型仍在逐个讨论中**，当前仅为初始脚手架。
+> 除 `webui` 选型已定稿外，后端各子项目的**详细技术选型仍在逐个讨论中**；下表为架构首选骨架。
 
 ## 产品形态与多租户（北极星）
 
@@ -16,24 +16,43 @@
 
 > 详见 [`docs/00-主仓初始化-spec.md`](./docs/00-主仓初始化-spec.md)、[`docs/architecture/05-多租户与控制平面.md`](./docs/architecture/05-多租户与控制平面.md)。
 
+## 子系统角色与骨架一览（一眼看懂）
+
+| 子仓 | 层 / 位置 | 职责（一句话） | 骨架技术选型（首选） |
+|--|--|--|--|
+| [`webui`](./services/webui) | 接入层 · 唯一前端 | 控制台 + 数据大屏 + 编排画布 | React 19 · Vite · AntD v6 · AntV（**已定稿**） |
+| [`gateway`](./services/gateway) | 南北向网关 | 路由/限流/鉴权/审计 · 注入租户头 | APISIX · Keycloak OIDC |
+| [`governance`](./services/governance) | 应用层 · 数据治理 | 元数据/血缘/质量/数据标准 | Spring Boot · OpenMetadata · PostgreSQL |
+| [`security`](./services/security) | 应用层 · 数据安全 | 分类分级/标签/审批/审计 | Spring Boot · Flowable · Prometheus |
+| [`tools-bi`](./services/tools-bi) | 应用层 · 数据工具 | 报表/自助分析/可视编排 | Spring Boot · DataEase · Doris |
+| [`privacy`](./services/privacy) | 应用层 · 隐私计算 | MPC/PSI/匿踪/节点互联 | SecretFlow(Python) · Java 编排 |
+| [`data-foundation`](./services/data-foundation) | 接入+计算+存储 · 数据底座 | 流批采集/湖仓/计算/Connector SPI | Flink · Kafka · SeaTunnel · Paimon · Doris · Milvus |
+| [`platform-common`](./services/platform-common) | 横切 · 平台公共 | 调度/工作流/统一元数据 | Spring Boot · DolphinScheduler · Flowable |
+| [`control-plane`](./services/control-plane) | 横切 · 控制平面 | 租户注册/开通/生命周期/配额 | Spring Boot · Helm SDK · K8s client · Keycloak Admin |
+
+**主仓自身（super-project）**：`deploy/`（Helm umbrella + values 分层 env/信创/tenant + per-tenant release，Secrets 走 External Secrets Operator）· `libs-java/`（parent + BOM + `starter-*`，发布 GitHub Packages）· `contracts/`（OpenAPI/protobuf 接口契约）· `docs/`（架构与研制文档）。
+
+> 后端各仓为**架构首选**，详细选型逐仓独立讨论细化；每个子仓 README 均含「角色与位置 / 职责与边界 / 骨架技术选型」。
+
 ## 仓库结构
 
 ```
 hashmatrix/                     # 主仓：公共依赖 + 部署运维
-├── deploy/                     # Helm umbrella chart + 各 env values
-├── libs-java/                  # 公共 Java BOM/starter
+├── deploy/                     # Helm umbrella chart + values(env/信创/tenant) + per-tenant release
+├── libs-java/                  # 公共 Java parent + BOM + starter（含 starter-tenant）
 ├── libs-ts/                    # 公共 TS 组件库/SDK
 ├── contracts/                  # ICD：OpenAPI/protobuf 接口契约
 ├── docs/                       # 架构与研制文档（敏感材料不入库）
 └── services/                   # ↓ 各为独立 git submodule
-    ├── webui/                  → hashmatrix-webui            前端 · TS
-    ├── gateway/                → hashmatrix-gateway          网关配置/插件
+    ├── webui/                  → hashmatrix-webui            接入层 · 唯一前端 · TS
+    ├── gateway/                → hashmatrix-gateway          南北向网关 · APISIX
     ├── governance/             → hashmatrix-governance       数据治理分系统 · Java
     ├── security/               → hashmatrix-security         数据安全分系统 · Java
     ├── tools-bi/               → hashmatrix-tools-bi         数据工具(报表BI/可视编排)
     ├── privacy/                → hashmatrix-privacy          隐私计算 · Python+Java
     ├── data-foundation/        → hashmatrix-data-foundation  数据基础(采集/计算/湖仓)
-    └── platform-common/        → hashmatrix-platform-common  平台公共(调度/认证/元数据)
+    ├── platform-common/        → hashmatrix-platform-common  平台公共(调度/工作流/元数据)
+    └── control-plane/          → hashmatrix-control-plane     多租户控制平面(开通/隔离/配额)
 ```
 
 ## 克隆（含子模块）
