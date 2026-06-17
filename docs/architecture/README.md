@@ -14,6 +14,7 @@
 | [02-平台治理与网关](./02-平台治理与网关.md) | 服务治理责任归属、请求路径、认证流、Mesh 演进路径 |
 | [03-技术选型](./03-技术选型.md) | 标准开源选型菜单、与标书硬指标对标 |
 | [04-工程与部署](./04-工程与部署.md) | Git Submodule 仓库结构、Helm 部署拓扑、信创双轨 |
+| [05-多租户与控制平面](./05-多租户与控制平面.md) | 双模产品形态、控制/数据平面、隔离定档、租户开通时序、租户上下文 |
 
 > 主要结构图均提供**双形态**：`线框图`（纯文本，终端/代码评审/Word/PDF 均可读）+ `Mermaid`（支持渲染的环境显示精细版）。
 
@@ -39,3 +40,6 @@
 | AD-09 | 信创策略 | 双轨：开源开发 + Connector SPI 数据源插件 + Helm values 切换 | 平台库用开源；信创点可并行开发 | 已定 |
 | AD-10 | 仓库管理 | Git Submodule，按分系统粗粒度（约 8 仓） | 仓库少、契合团队按分系统分工 | 已定 |
 | AD-11 | 东西向流量治理 | 后置 Service Mesh（Istio Ambient / Higress） | 真成刚需再上，不提前付复杂度 | 规划 |
+| AD-12 | 多租户模型 | C 分层 + Keycloak Organizations 单 realm + schema/db-per-tenant + namespace-per-tenant | 政企 ≤15，控制平面共享、数据平面按租户隔离；品牌部署级 | 已定 |
+| AD-13 | 控制平面 | 新增 `control-plane` 子系统，经 Helm SDK + K8s client 命令式开通（不依赖 Git/Argo） | 生产期租户开通不耦合 Git；Argo 仅管共享基座 | 已定 |
+| AD-14 | 公共依赖治理 | `libs-java` 出 parent+BOM+starter，发 GitHub Packages，子仓走 Maven 坐标引用 | 只拉子仓也能构建；内网交付镜像到私服 | 已定 |

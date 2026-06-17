@@ -22,3 +22,6 @@
 [submodule "services/platform-common"]
 	path = services/platform-common
 	url = https://github.com/HashMatrixData/hashmatrix-platform-common.git
+[submodule "services/control-plane"]
+	path = services/control-plane
+	url = https://github.com/HashMatrixData/hashmatrix-control-plane.git
