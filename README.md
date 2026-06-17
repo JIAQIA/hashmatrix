@@ -16,7 +16,7 @@ hashmatrix/                     # 主仓：公共依赖 + 部署运维
 ├── libs-java/                  # 公共 Java BOM/starter
 ├── libs-ts/                    # 公共 TS 组件库/SDK
 ├── contracts/                  # ICD：OpenAPI/protobuf 接口契约
-├── docs/                       # 架构与研制文档（敏感标书材料不入库）
+├── docs/                       # 架构与研制文档（敏感材料不入库）
 └── services/                   # ↓ 各为独立 git submodule
     ├── webui/                  → hashmatrix-webui            前端 · TS
     ├── gateway/                → hashmatrix-gateway          网关配置/插件
