@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    子仓接入样例：以「Maven 坐标」引用公共依赖，不依赖 submodule 路径。
+    <relativePath/> 留空 = 强制从制品仓解析 parent（真实子仓正是如此，仓内没有 ../../pom.xml）。
+    故只 clone 本子仓、能访问制品仓即可 `mvn package`。
+  -->
+  <parent>
+    <groupId>io.hashmatrix</groupId>
+    <artifactId>hashmatrix-platform-parent</artifactId>
+    <version>0.1.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.hashmatrix.examples</groupId>
+  <artifactId>sample-service</artifactId>
+  <version>0.1.0</version>
+
+  <name>sample-service</name>
+  <description>libs-java 接入样例：演示 &lt;parent&gt; + import BOM + starter-tenant/web 的最小子仓。</description>
+
+  <properties>
+    <!-- 样例不发布 -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 开发框架版本唯一来源：import hashmatrix-bom（与 <parent> 配合，正是子仓标准接入姿势） -->
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-bom</artifactId>
+        <version>0.1.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- 版本均由 BOM 钉死，子仓不写版本号 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-tenant</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <!--
+    样例打普通 jar 即可证明「只 clone 子仓可构建」。
+    若子仓需可执行 fat-jar，自行加 spring-boot-maven-plugin（版本对齐 BOM 的 spring-boot.version）。
+  -->
+</project>
