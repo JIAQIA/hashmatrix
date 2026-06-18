@@ -1,0 +1,35 @@
+# 契约登记表 —— 机器可读单一索引（CONVENTIONS.md §文档格式）。
+# 新增/变更契约务必在此登记；子项目的 producer/consumer 映射由本表反推（见 integration.md）。
+version: 1
+contracts:
+  - id: icd/tenant-context-headers
+    type: icd
+    path: icd/tenant-context-headers-icd.md
+    status: draft
+    version: 1.0.0
+    producers: [hashmatrix-gateway]
+    consumers:
+      - hashmatrix-governance
+      - hashmatrix-security
+      - hashmatrix-tools-bi
+      - hashmatrix-privacy
+      - hashmatrix-data-foundation
+      - hashmatrix-platform-common
+      - hashmatrix-control-plane
+
+  - id: icd/governance-metadata
+    type: icd
+    path: icd/governance-metadata-icd.md
+    status: draft          # 消费方待对齐（ICD §5）
+    version: 0.1.0
+    producers: [hashmatrix-governance]
+    consumers:
+      - hashmatrix-tools-bi
+      - hashmatrix-security
+      - hashmatrix-webui
+      - hashmatrix-data-foundation
+      - hashmatrix-platform-common
+
+# 占位/计划中（待对应 schema 落地后登记 path）：
+#   - openapi/governance-metadata   (governance 供数 REST，icd/governance-metadata §2)
+#   - asyncapi/governance-metadata  (governance 变更事件，icd/governance-metadata §3)

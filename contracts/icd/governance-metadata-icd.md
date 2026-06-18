@@ -1,3 +1,13 @@
+---
+id: icd/governance-metadata
+owner: hashmatrix-governance
+status: draft
+version: 0.1.0
+producers: [hashmatrix-governance]
+consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
+since: 2026-06-18
+---
+
 # ICD 草案 · governance 元数据供数与变更事件
 
 > 状态：**草案（待评审）**。本文先登记 governance 对外的跨子系统接口轮廓，作为契约先行的占位；

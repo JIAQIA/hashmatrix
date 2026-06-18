@@ -67,3 +67,12 @@ supersedes: <id@version>     # 可选：替代的旧契约
 ## 6. 流程
 
 提契约 PR → 静态门通过 + CODEOWNERS 评审 → 合并 → producer/consumer 各仓据契约跑测试 → 需要时发契约版本（tag / registry 更新）。**实现永远跟随已合并的契约，不反向**。
+
+## 7. 子项目如何查阅契约（让各仓"意识到存在、随时可查"）
+
+契约集中在主仓，但各子仓多为独立 clone——靠以下机制让子仓工作时**感知并随时查阅**契约（详见 [`integration.md`](./integration.md)）：
+
+1. **每个子仓 `CLAUDE.md` 内置「契约」块**（[`integration.md`](./integration.md) §1 标准块）：Claude Code 每次会话自动加载 → 天然感知；块内含铁律 + 本仓 producer/consumer 清单 + 查阅入口。
+2. **机器可读索引** [`registry.yaml`](./registry.yaml)：每契约的 `id/type/producers/consumers/status/path`，供工具/skill 反推"哪个仓看哪些契约"。
+3. **实时拉取（不存本地副本）**：在 superproject 下读 `../../contracts/`；独立 clone 时 WebFetch `raw.githubusercontent.com/.../contracts/registry.yaml`（公开仓免鉴权）或 `gh api`。规格永远取最新，避免 vendoring 漂移。
+4. **（规划）`hashmatrix-toolkit` 契约 skill**：任意仓按 registry 拉取最新契约并定位本仓相关项。

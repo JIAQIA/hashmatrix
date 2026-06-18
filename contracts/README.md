@@ -22,7 +22,7 @@
 | [`icd/tenant-context-headers`](./icd/tenant-context-headers-icd.md) | ICD | gateway | draft |
 | [`icd/governance-metadata`](./icd/governance-metadata-icd.md) | ICD | governance | draft |
 
-> 新增契约务必在本表登记（id / 类型 / producer / status）。
+> 机器可读索引见 [`registry.yaml`](./registry.yaml)（producers/consumers 全量）；新增契约务必同步登记。
 
 ## 怎样新增 / 变更契约
 
@@ -31,6 +31,10 @@
 3. 开 PR——CI 跑静态门（lint + 破坏性检测）；契约变更需 **CODEOWNERS 评审**。
 4. 合并后，producer/consumer 各自仓 CI 据此验证实现（契约测试，见 CONVENTIONS §测试）。
 5. **破坏性变更**：升 MAJOR + 弃用期双跑 + 通知全部 consumers（见 CONVENTIONS §版本兼容）。
+
+## 子项目如何查阅契约
+
+各子仓经 `CLAUDE.md`「契约」块感知 + 实时拉取本仓（不存副本）。标准块、各仓 producer/consumer 映射、传播方式见 [`integration.md`](./integration.md)（规范见 [`CONVENTIONS.md`](./CONVENTIONS.md) §7）。
 
 ## 🔴 红线
 
