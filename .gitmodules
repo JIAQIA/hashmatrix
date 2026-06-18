@@ -25,3 +25,6 @@
 [submodule "services/control-plane"]
 	path = services/control-plane
 	url = https://github.com/HashMatrixData/hashmatrix-control-plane.git
+[submodule "prototype"]
+	path = prototype
+	url = git@github.com:HashMatrixData/hashmatrix-prototype.git
