@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import io.hashmatrix.starter.audit.AuditRecorder;
 import io.hashmatrix.starter.tenant.TenantContextFilter;
 import io.hashmatrix.starter.web.GlobalExceptionHandler;
 import io.hashmatrix.test.fixtures.MockTenants;
@@ -17,7 +18,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * 端到端验证公共 starter 在真实子仓上下文中装配并生效：
- * 租户头透传（starter-tenant）+ 统一返回/异常（starter-web）+ 复用 fixtures（starter-test）。
+ * 租户头透传（starter-tenant）+ 统一返回/异常（starter-web）+ 审计/可观测（starter-audit/observability，v0.2.0）
+ * + 复用 fixtures（starter-test）。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -33,6 +35,9 @@ class SampleApplicationTests {
     void publicStartersAreWiredIntoTheApplication() {
         assertThat(context.getBeansOfType(TenantContextFilter.class)).isNotEmpty();
         assertThat(context.getBeansOfType(GlobalExceptionHandler.class)).isNotEmpty();
+        // v0.2.0 新增横切 starter 同样在真实子仓装配并可注入（HelloController 已构造注入 AuditRecorder）
+        assertThat(context.getBeansOfType(AuditRecorder.class)).isNotEmpty();
+        assertThat(context.containsBean("hashmatrixCommonTagsCustomizer")).isTrue();
     }
 
     @Test

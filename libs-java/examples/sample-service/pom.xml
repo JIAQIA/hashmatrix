@@ -55,6 +55,15 @@
       <groupId>io.hashmatrix</groupId>
       <artifactId>hashmatrix-starter-web</artifactId>
     </dependency>
+    <!-- v0.2.0 新增横切 starter：审计（用 AuditRecorder）+ 可观测（actuator/指标，被动生效） -->
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-audit</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-observability</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>io.hashmatrix</groupId>
