@@ -1,0 +1,23 @@
+{{- /*
+共享基座命名空间（长生命周期：gateway / app / data / observability）。
+租户数据平面 namespace（tenant-<id>）不在此——由 charts/tenant 渲染、控制平面按需开通。
+*/ -}}
+{{- if .Values.baseNamespaces.create -}}
+{{- $ps := .Values.baseNamespaces.podSecurity | default "restricted" -}}
+{{- range $key, $ns := .Values.baseNamespaces.names }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  labels:
+    {{- include "platform.labels" $ | nindent 4 }}
+    # 显式声明（与 K8s NamespaceDefaultLabelName 自动注入一致，幂等）：
+    # 让租户 NetworkPolicy 的 namespaceSelector 不隐式依赖 feature gate / 集群版本。
+    kubernetes.io/metadata.name: {{ $ns }}
+    hashmatrix.io/base-namespace: {{ $key | quote }}
+    pod-security.kubernetes.io/enforce: {{ $ps }}
+    pod-security.kubernetes.io/audit: {{ $ps }}
+    pod-security.kubernetes.io/warn: {{ $ps }}
+{{- end }}
+{{- end }}

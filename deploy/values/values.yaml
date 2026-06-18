@@ -1,0 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# platform 共享 profile（分层第二层）：跨环境通用项。
+# 叠加： charts/platform/values.yaml(base) → 本文件 → values-{prod,test,xc}.yaml(env)。
+# 用法： helm template platform deploy/charts/platform -f deploy/values/values.yaml -f deploy/values/values-<env>.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  # 镜像仓基址（各环境可在 env 覆盖；xc 信创切国产化/私有仓）。
+  imageRegistry: ""
+
+# 共享基座命名空间：跨环境统一创建（长生命周期）。
+baseNamespaces:
+  create: true
+  podSecurity: restricted
+
+# 子 chart 与有状态依赖的开关在 env 层按需开启（此处保持 base 的全关默认）。

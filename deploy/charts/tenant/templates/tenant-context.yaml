@@ -1,0 +1,23 @@
+{{- /*
+租户数据隔离上下文 ConfigMap：声明该租户的 schema/db / Doris catalog / Paimon database。
+实际建库由控制平面 DB job 执行；本清单是「期望状态」的事实记录，供服务与运维取用。
+对应 X-Tenant-* 透传链路末端的数据访问层路由（schema/catalog）。
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tenant.id" . }}-context
+  namespace: {{ include "tenant.namespace" . }}
+  labels:
+    {{- include "tenant.labels" . | nindent 4 }}
+data:
+  tenantId: {{ include "tenant.id" . | quote }}
+  displayName: {{ .Values.tenant.displayName | default (include "tenant.id" .) | quote }}
+  postgresStrategy: {{ .Values.data.postgres.strategy | quote }}
+  {{- if eq .Values.data.postgres.strategy "database" }}
+  postgresDatabase: {{ include "tenant.pgDatabase" . | quote }}
+  {{- else }}
+  postgresSchema: {{ include "tenant.pgSchema" . | quote }}
+  {{- end }}
+  dorisCatalog: {{ include "tenant.dorisCatalog" . | quote }}
+  paimonDatabase: {{ default (printf "db_%s" (include "tenant.id" .)) .Values.data.paimon.database | quote }}

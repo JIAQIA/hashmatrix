@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# per-tenant 模板实例：tenant-demodb（虚构脱敏）。
+# 用途：CI 渲染矩阵覆盖 demo 未触达的分支——
+#   · data.postgres.strategy = database（渲 postgresDatabase 而非 schema）
+#   · services[] 中 image.repository 为空的条目应被跳过（不产出非法 Deployment）
+# ─────────────────────────────────────────────────────────────────────────────
+
+tenant:
+  id: demodb
+  displayName: "Tenant DemoDB"
+
+data:
+  postgres:
+    strategy: database       # → tenant-context 渲 postgresDatabase: tenant_demodb
+
+networkPolicy:
+  enabled: true
+
+externalSecrets:
+  enabled: true
+
+services:
+  # 有效条目：渲 Deployment+Service
+  - name: governance
+    image:
+      repository: ghcr.io/hashmatrixdata/governance
+      tag: "0.1.0"
+    port: 8080
+  # 占位条目：image.repository 为空 → 跳过（验证防御逻辑，不产出非法 Deployment）
+  - name: security
+    image:
+      repository: ""
+    port: 8080

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: platform-common
+description: |
+  调度/认证/元数据（占位子 chart）。由 umbrella chart `platform` 按 `platform-common.enabled` 条件聚合。
+  实际部署模板由对应 submodule services/platform-common 贡献后逐步充实（schema-first / 占位先行）。
+type: application
+
+# 占位版本：尚未发布。
+version: 0.0.0-placeholder
+appVersion: "0.0.0"
+
+keywords:
+  - hashmatrix
+  - platform-common
+  - Java
+
+home: https://github.com/HashMatrixData/hashmatrix-platform-common
+sources:
+  - https://github.com/HashMatrixData/hashmatrix-platform-common

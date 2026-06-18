@@ -1,0 +1,93 @@
+apiVersion: v2
+name: platform
+description: |
+  hashmatrix 共享基座 umbrella chart。聚合各分系统子 chart（按 <name>.enabled 条件渲染），
+  并声明有状态依赖（社区 Operator/chart，钉版本）。仅管「长生命周期共享基座」
+  （gateway / data / observability），**租户 provision 不在此**——见 charts/tenant。
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+# ── 各分系统子 chart（本地 file:// 依赖，离线可 `helm dependency build`）──
+# 占位阶段默认全部 enabled=false（子 chart 尚无可部署模板）；真实模板由各 submodule 贡献后开启。
+dependencies:
+  - name: gateway
+    version: "0.0.0-placeholder"
+    repository: "file://../gateway"
+    condition: gateway.enabled
+  - name: governance
+    version: "0.0.0-placeholder"
+    repository: "file://../governance"
+    condition: governance.enabled
+  - name: security
+    version: "0.0.0-placeholder"
+    repository: "file://../security"
+    condition: security.enabled
+  - name: tools-bi
+    version: "0.0.0-placeholder"
+    repository: "file://../tools-bi"
+    condition: tools-bi.enabled
+  - name: privacy
+    version: "0.0.0-placeholder"
+    repository: "file://../privacy"
+    condition: privacy.enabled
+  - name: data-foundation
+    version: "0.0.0-placeholder"
+    repository: "file://../data-foundation"
+    condition: data-foundation.enabled
+  - name: platform-common
+    version: "0.0.0-placeholder"
+    repository: "file://../platform-common"
+    condition: platform-common.enabled
+  - name: control-plane
+    version: "0.0.0-placeholder"
+    repository: "file://../control-plane"
+    condition: control-plane.enabled
+
+# ── 有状态依赖（社区 Operator/chart 优先，钉版本）──
+# 决策：保持「钉版本但默认禁用」。这里**注释声明**（沿用 charts/gateway/Chart.yaml 对 apisix 的同款做法），
+# 以保证 CI `helm dependency build/template` **离线可跑**（不拉多 GB 外部 chart）。
+# 落地某环境时：取消相应注释 → `helm dependency update` 拉取 → 在 values-<env>.yaml 置 <name>.enabled=true。
+# 版本为占位，启用前请核对当时社区稳定版。
+#
+# dependencies:
+#   # 关系型库：优先 CloudNativePG Operator；下方 bitnami chart 仅作快速起栈备选。
+#   - name: postgresql
+#     version: "16.x.x"
+#     repository: "oci://registry-1.docker.io/bitnamicharts"   # 或自建镜像仓
+#     condition: postgresql.enabled
+#   - name: kafka                 # 优先 Strimzi Operator（strimzi-kafka-operator）
+#     version: "x.y.z"
+#     repository: "https://strimzi.io/charts/"
+#     condition: kafka.enabled
+#   - name: doris                 # Apache Doris Operator（doris-operator）
+#     version: "x.y.z"
+#     repository: "https://charts.selectdb.com"
+#     condition: doris.enabled
+#   - name: milvus
+#     version: "x.y.z"
+#     repository: "https://zilliztech.github.io/milvus-helm/"
+#     condition: milvus.enabled
+#   - name: minio                 # 优先 MinIO Operator
+#     version: "x.y.z"
+#     repository: "https://operator.min.io/"
+#     condition: minio.enabled
+#   - name: redis
+#     version: "x.y.z"
+#     repository: "oci://registry-1.docker.io/bitnamicharts"
+#     condition: redis.enabled
+#   - name: eck-elasticsearch     # Elastic ECK Operator
+#     version: "x.y.z"
+#     repository: "https://helm.elastic.co"
+#     condition: elasticsearch.enabled
+
+keywords:
+  - hashmatrix
+  - umbrella
+  - platform
+  - multi-tenant
+
+home: https://github.com/HashMatrixData/hashmatrix
+sources:
+  - https://github.com/HashMatrixData/hashmatrix

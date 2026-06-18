@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# per-tenant 模板实例：tenant-demo（虚构脱敏，红线占位）。
+# 控制平面开通真实租户时按此结构生成 values-tenant-<id>.yaml。
+# 用法： helm template tenant-demo deploy/charts/tenant \
+#          -f deploy/charts/tenant/values.yaml -f deploy/values/values-tenant-demo.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+tenant:
+  id: demo
+  displayName: "Tenant Demo"
+  # namespace 默认 tenant-demo；podSecurity 默认 restricted。
+
+# 配额：示例小规格（政企大客户按合同配额上调）。
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "30"
+    persistentvolumeclaims: "10"
+
+# 数据隔离：schema-per-tenant（默认 schema=tenant_demo / catalog=catalog_demo）。
+data:
+  postgres:
+    strategy: schema
+
+# 网络隔离：默认基线（拒绝 + 放行 DNS/同租户/基座）。
+networkPolicy:
+  enabled: true
+
+# Secrets：经 ESO 从外部 store 注入（路径 tenants/demo/db；无明文）。
+externalSecrets:
+  enabled: true
+
+# 服务实例：占位演示一个通用服务（落地改渲对应分系统子 chart）。
+services:
+  - name: governance
+    image:
+      repository: ghcr.io/hashmatrixdata/governance
+      tag: "0.1.0"
+    port: 8080
+    replicas: 1
+    resources:
+      requests:
+        cpu: "200m"
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi

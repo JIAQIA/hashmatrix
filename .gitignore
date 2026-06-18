@@ -46,3 +46,17 @@ secrets/
 
 # 红线 denylist：真实代号/客户术语词表仅本地留存，不入库
 libs-java/scripts/.redline-denylist
+
+# ===== Helm（deploy/）=====
+# umbrella vendored 子 chart（helm dependency build 产物，可重建，不入库）
+deploy/charts/*/charts/
+# 渲染产物
+deploy/**/*.rendered.yaml
+# 红线：明文 Secret 实体一律不入库（ESO 注入）。
+# 注意用否定放行 ESO 的 ExternalSecret/SecretStore CR——它们只引用外部路径、无明文，必须入库。
+**/*secret*.yaml
+**/*secret*.yml
+!**/externalsecret*.yaml
+!**/externalsecret*.yml
+!**/secretstore*.yaml
+!**/clustersecretstore*.yaml

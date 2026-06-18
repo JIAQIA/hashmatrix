@@ -1,0 +1,42 @@
+name: deploy CI
+
+# Helm 部署治理静态门：红线守卫 + 渲染门（lint/template/kubeconform）。
+# 仅校验本地 file:// 子 chart（离线）；远程有状态依赖在 Chart.yaml 中注释，不在 CI 拉取。
+on:
+  push:
+    branches: [main]
+    paths: ['deploy/**', '.github/workflows/deploy-ci.yml']
+  pull_request:
+    paths: ['deploy/**', '.github/workflows/deploy-ci.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  helm-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 红线守卫（无明文 Secret 入库）
+        run: bash deploy/scripts/secrets-guard.sh
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C /usr/local/bin kubeconform
+          kubeconform -v
+
+      - name: 渲染门（dep build + lint + template + kubeconform）
+        # 校验 platform 基座（test/prod/xc）与 tenant 模板。
+        # demodb 额外覆盖 strategy=database 分支与 image.repository 为空的跳过逻辑。
+        run: |
+          bash deploy/scripts/validate.sh test demo
+          bash deploy/scripts/validate.sh prod demo
+          bash deploy/scripts/validate.sh xc demo
+          bash deploy/scripts/validate.sh test demodb

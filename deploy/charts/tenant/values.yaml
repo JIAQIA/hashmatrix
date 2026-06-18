@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# tenant —— 租户开通单元 BASE values（默认值；具体租户经 deploy/values/values-tenant-<id>.yaml 覆盖）。
+# 一个 release 一个租户：control-plane 渲染时注入 tenant.id / tenant.displayName 等。
+# 红线：任何 secret 不在此写明文——经 ESO 从外部 Vault/KMS 注入。
+# ─────────────────────────────────────────────────────────────────────────────
+
+tenant:
+  # 租户标识（org=租户：公网=企业 / 私有化=部门）。必填，由 values-tenant-<id>.yaml 覆盖。
+  id: demo
+  displayName: "Tenant Demo"
+  # 命名空间名（默认 tenant-<id>）。
+  namespace: ""
+  podSecurity: restricted
+
+# ── 配额（K8s ResourceQuota，硬限）──
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "50"
+    persistentvolumeclaims: "20"
+
+# ── 默认资源区间（LimitRange）──
+limitRange:
+  enabled: true
+  default:
+    cpu: "500m"
+    memory: 512Mi
+  defaultRequest:
+    cpu: "100m"
+    memory: 128Mi
+
+# ── 网络隔离（NetworkPolicy：默认拒绝 + 放行 DNS / 同租户 ns 内 / 共享基座 gateway）──
+networkPolicy:
+  enabled: true
+  # 允许来自该共享基座网关 namespace 的入站（南北向经网关）。
+  allowFromNamespaces:
+    - gateway
+  # 允许出站到的共享基座 namespace（数据/可观测）。
+  allowToNamespaces:
+    - data
+    - observability
+
+# ── 数据隔离上下文（schema/db-per-tenant；实际建库由控制平面 DB job 执行，本 chart 仅声明期望）──
+data:
+  # PG 业务库：schema 或 db 二选一策略。
+  postgres:
+    strategy: schema        # schema | database
+    schema: ""              # 默认 tenant_<id>
+    database: ""            # strategy=database 时使用
+  # 数据仓/湖：Doris catalog / Paimon database。
+  doris:
+    catalog: ""             # 默认 catalog_<id>
+  paimon:
+    database: ""            # 默认 db_<id>
+
+# ── Secrets（External Secrets Operator；红线：不写明文，仅引用外部 store 路径）──
+externalSecrets:
+  enabled: true
+  # 已部署的 (Cluster)SecretStore 名称（由平台基座提供）。
+  secretStoreRef:
+    name: hashmatrix-vault
+    kind: ClusterSecretStore
+  refreshInterval: "1h"
+  # 外部 store 中租户 secret 的根路径段；实际路径 = <remotePathPrefix>/<tenant.id>/<item.remotePath>。
+  remotePathPrefix: tenants
+  # 要拉取并物化成 K8s Secret 的条目（仅路径/属性名，无明文）。
+  items:
+    - secretName: tenant-db        # 物化成的 K8s Secret 名
+      remotePath: db               # 外部 store 路径段
+      data:
+        - secretKey: username
+          property: username
+        - secretKey: password
+          property: password
+
+# ── 租户服务实例（数据平面：namespace-per-tenant 内拉起的分系统实例）──
+# 占位：以通用 Deployment+Service 表征「服务实例」，落地时由控制平面渲染对应分系统子 chart。
+# image.repository 为空的条目自动跳过（占位安全：不产出 image 为空的非法 Deployment）。
+services: []
+#  - name: governance
+#    image:
+#      repository: ghcr.io/hashmatrixdata/governance
+#      tag: "0.1.0"
+#    port: 8080
+#    replicas: 1

@@ -1,0 +1,27 @@
+dependencies:
+- name: gateway
+  repository: file://../gateway
+  version: 0.0.0-placeholder
+- name: governance
+  repository: file://../governance
+  version: 0.0.0-placeholder
+- name: security
+  repository: file://../security
+  version: 0.0.0-placeholder
+- name: tools-bi
+  repository: file://../tools-bi
+  version: 0.0.0-placeholder
+- name: privacy
+  repository: file://../privacy
+  version: 0.0.0-placeholder
+- name: data-foundation
+  repository: file://../data-foundation
+  version: 0.0.0-placeholder
+- name: platform-common
+  repository: file://../platform-common
+  version: 0.0.0-placeholder
+- name: control-plane
+  repository: file://../control-plane
+  version: 0.0.0-placeholder
+digest: sha256:9c4afa57215c581448651b46c278515cd8b0c68d274056459dca398889651997
+generated: "2026-06-18T13:55:45.224726+08:00"

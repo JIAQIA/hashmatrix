@@ -1,0 +1,19 @@
+# ── 研发/测试环境覆盖（分层第三层）。占位阶段子 chart 仍全关，仅打环境标签。 ──
+global:
+  env: test
+  # imageRegistry: registry.example.com/hashmatrix-test
+
+baseNamespaces:
+  podSecurity: baseline   # 测试环境放宽到 baseline，便于联调
+
+# 子 chart 落地后在此按需开启，例如：
+# gateway:
+#   enabled: true
+# platform-common:
+#   enabled: true
+
+# 有状态依赖：测试期可用社区 chart 快速起栈（需先取消 Chart.yaml 注释 + helm dependency update）：
+# postgresql:
+#   enabled: true
+# redis:
+#   enabled: true

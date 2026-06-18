@@ -1,0 +1,13 @@
+{{- /* 租户命名空间（namespace-per-tenant 计算隔离单元）。 */ -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "tenant.namespace" . }}
+  labels:
+    {{- include "tenant.labels" . | nindent 4 }}
+    # 显式声明（与自动注入一致，幂等），供跨 ns NetworkPolicy 选择本租户 ns。
+    kubernetes.io/metadata.name: {{ include "tenant.namespace" . }}
+    hashmatrix.io/tenant-display-name: {{ .Values.tenant.displayName | default (include "tenant.id" .) | quote }}
+    pod-security.kubernetes.io/enforce: {{ .Values.tenant.podSecurity | default "restricted" }}
+    pod-security.kubernetes.io/audit: {{ .Values.tenant.podSecurity | default "restricted" }}
+    pod-security.kubernetes.io/warn: {{ .Values.tenant.podSecurity | default "restricted" }}
