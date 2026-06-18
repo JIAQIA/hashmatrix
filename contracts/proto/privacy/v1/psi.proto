@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+// 隐私计算 PSI（安全求交）gRPC 契约 —— 前瞻路径（forward-looking）。
+//
+// 当前最小骨架的 Java↔Python 运行通道采用 REST（见 ../openapi/privacy-psi-v1.yaml）。
+// 本 proto 登记 **未来 gRPC 流式 PSI** 的演进目标：大规模求交时以双向流传输
+// 分片/OT 消息，避免一次性物化全量元素。待引入 protoc 工具链后启用。
+//
+// 多租户红线：跨租户联合计算须 cross_tenant_authorized=true（默认不串）。
+// 脱敏约定：示例一律虚构占位（acme / tenant-demo / example.com）。
+
+package privacy.v1;
+
+option java_multiple_files = true;
+option java_package = "com.hashmatrix.privacy.contracts.psi.v1";
+
+// PSI 服务：编排层（Java）调用计算引擎（Python/SecretFlow）。
+service PsiService {
+  // 一元调用：小规模求交（与 REST /v1/psi/run 等价）。
+  rpc Run(RunRequest) returns (RunResponse);
+
+  // 双向流：大规模求交，逐分片交换 OT/密文消息（前瞻，未实现）。
+  rpc RunStream(stream RunStreamRequest) returns (stream RunStreamResponse);
+}
+
+message Party {
+  string party_id = 1;
+  string tenant = 2;
+  repeated string elements = 3; // mock 明文；真实 PSI 不出域
+}
+
+message RunRequest {
+  string job_id = 1;
+  string initiator_tenant = 2;
+  repeated Party parties = 3; // 恰好 2 方
+  bool cross_tenant_authorized = 4; // 跨租户显式授权；默认 false
+}
+
+message RunResponse {
+  string job_id = 1;
+  Status status = 2;
+  int32 intersection_size = 3;
+  repeated string intersection = 4; // mock 后端返回；真实后端可仅返回基数
+  string message = 5;
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_SUCCEEDED = 1;
+    STATUS_REJECTED = 2;
+    STATUS_FAILED = 3;
+  }
+}
+
+// 流式分片载荷（请求/响应各自包裹，满足 RPC 请求/响应类型唯一）。
+message PsiChunk {
+  string job_id = 1;
+  bytes payload = 2; // 分片密文/OT 消息（前瞻）
+  bool last = 3;
+}
+
+message RunStreamRequest {
+  PsiChunk chunk = 1;
+}
+
+message RunStreamResponse {
+  PsiChunk chunk = 1;
+}

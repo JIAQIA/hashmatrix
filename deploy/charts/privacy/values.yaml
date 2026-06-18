@@ -1,14 +1,29 @@
-# privacy 子 chart values（占位）。
-# 落地时由 services/privacy 贡献真实模板，并接入 umbrella 的分环境 values（prod/test/xc）。
+# privacy 子 chart 占位 values。镜像仓库/标签随 privacy 子仓 CI 发布填充。
+# 脱敏：示例仅用通用占位，无任何真实甲方环境参数。
 
-# umbrella 通过 `privacy.enabled` 条件决定是否渲染本子 chart（默认关闭，占位阶段不产出清单）。
-enabled: false
+# Python 计算引擎（SecretFlow / PSI）
+enginePy:
+  image:
+    repository: hashmatrix-privacy/engine-py
+    tag: ""            # 默认取 Chart.appVersion
+    pullPolicy: IfNotPresent
+  replicas: 1
+  containerPort: 8000
+  env:
+    PSI_BACKEND: mock  # 真实部署切 secretflow
+  resources: {}        # 占位：按租户 ResourceQuota 调
 
-# 镜像（占位，部署级注入）。
-image:
-  repository: ""        # e.g. ghcr.io/hashmatrixdata/privacy
-  tag: ""               # 部署期固定具体 tag，避免 latest
-  pullPolicy: IfNotPresent
+# Java 编排层（Spring Boot）
+orchestratorJava:
+  image:
+    repository: hashmatrix-privacy/orchestrator-java
+    tag: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  containerPort: 8080
+  resources: {}
 
-# 副本与资源（占位，落地时按 SLO 调整）。
-replicaCount: 1
+# 多租户：实际部署由 control-plane 注入 per-tenant namespace/quota/netpol。
+tenant:
+  # 占位标识；渲染 per-tenant release 时覆盖。
+  id: tenant-demo

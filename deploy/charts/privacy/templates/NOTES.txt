@@ -1,2 +1,6 @@
-privacy 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/privacy 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+privacy 子 chart（version 0.0.0-placeholder）：双容器占位骨架已就绪——
+  engine-py（Python/SecretFlow 计算引擎）+ orchestrator-java（Java 编排）。
+镜像仓库/标签随 submodule services/privacy 子仓 CI 产出后填充；关联 HashMatrixData/hashmatrix#2。
+
+本地渲染校验：
+  helm template demo deploy/charts/privacy

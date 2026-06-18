@@ -1,18 +1,23 @@
 apiVersion: v2
 name: privacy
 description: |
-  隐私计算（占位子 chart）。由 umbrella chart `platform` 按 `privacy.enabled` 条件聚合。
-  实际部署模板由对应 submodule services/privacy 贡献后逐步充实（schema-first / 占位先行）。
+  隐私计算分系统子 chart（占位）。双容器工作负载：
+  engine-py（Python/SecretFlow 计算引擎）+ orchestrator-java（Java/Spring Boot 编排）。
+  由 umbrella chart `platform` 按 `privacy.enabled` 条件聚合；实现源在 submodule services/privacy；
+  多租户按 namespace-per-tenant 由 control-plane 经 Helm SDK 渲染 per-tenant release（见架构 05 / spec §2）。
 type: application
 
-# 占位版本：尚未发布。
+# 占位版本：尚未发布。镜像随 privacy 子仓 CI 产出后填充。
 version: 0.0.0-placeholder
 appVersion: "0.0.0"
 
 keywords:
   - hashmatrix
   - privacy
-  - Python+Java
+  - mpc
+  - psi
+  - secretflow
+  - multi-tenant
 
 home: https://github.com/HashMatrixData/hashmatrix-privacy
 sources:

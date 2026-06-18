@@ -1,19 +1,19 @@
-# deploy/charts/privacy ——  chart（占位）
+# charts/privacy · 隐私计算子 chart（占位）
 
-> **状态：占位（placeholder）**。`version: 0.0.0-placeholder`，尚不可部署。
-> 关联：HashMatrixData/hashmatrix#2（部署运维封装）。
+双工作负载骨架：
 
-## 定位
+- `engine-py` —— Python 计算引擎（SecretFlow / PSI），`/healthz` 探针
+- `orchestrator-java` —— Java 编排层，`/actuator/health/readiness` 探针，经 service 名访问引擎
 
-主仓 umbrella chart `platform` 下的 **privacy** 子 chart。占位阶段仅声明聚合关系，
-真实部署模板（Deployment/Service/HPA/Probe 等）由对应 submodule `services/privacy` 贡献后充实。
+> 占位 chart（`version: 0.0.0-placeholder`）：镜像仓库/标签随 privacy 子仓 CI 发布填充。
+> 多租户按 **namespace-per-tenant** 由 `control-plane` 经 Helm SDK 渲染 per-tenant release
+> （见架构 05 / spec §2）。实现源在 submodule `services/privacy`。
 
-- 事实源：`services/privacy`（Python+Java）。
-- 聚合方式：umbrella `platform/Chart.yaml` 以 `file://../privacy` 声明依赖，按 `privacy.enabled` 条件渲染（默认关闭）。
-- 分环境差异（prod/test/信创 xc）经 umbrella 的 `values-<env>.yaml` 注入，本子 chart 不内置环境耦合。
+## 聚合方式
 
-## 待落地清单（TODO）
+umbrella chart `platform` 以 `file://../privacy` 声明依赖，按 `privacy.enabled` 条件渲染（默认关闭）；
+分环境差异（prod/test/信创 xc）经 umbrella 的 `values-<env>.yaml` 注入，本子 chart 不内置环境耦合。
 
-- [ ] services/privacy 贡献真实 `templates/`（无状态 Deployment + HPA + Probe）
-- [ ] `image.repository/tag` 经部署级 values 注入（固定 tag，不用 latest）
-- [ ] 接入 umbrella 分环境 values 与 per-tenant 渲染（数据平面 namespace-per-tenant）
+```bash
+helm template demo deploy/charts/privacy        # 本地渲染校验
+```

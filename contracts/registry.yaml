@@ -30,6 +30,22 @@ contracts:
       - hashmatrix-data-foundation
       - hashmatrix-platform-common
 
+  - id: openapi/privacy-psi-v1
+    type: openapi
+    path: openapi/privacy-psi-v1.yaml
+    status: draft          # Java 编排层 ↔ Python 计算引擎 PSI 编排（privacy 内部线契约）
+    version: 1.0.0
+    producers: [hashmatrix-privacy]
+    consumers: [hashmatrix-privacy]
+
+  - id: proto/privacy-psi
+    type: proto
+    path: proto/privacy/v1/psi.proto
+    status: draft          # 前瞻：gRPC 流式 PSI 演进目标，待 protoc 工具链
+    version: 1.0.0
+    producers: [hashmatrix-privacy]
+    consumers: [hashmatrix-privacy]
+
 # 占位/计划中（待对应 schema 落地后登记 path）：
 #   - openapi/governance-metadata   (governance 供数 REST，icd/governance-metadata §2)
 #   - asyncapi/governance-metadata  (governance 变更事件，icd/governance-metadata §3)

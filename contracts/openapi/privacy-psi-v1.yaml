@@ -1,0 +1,146 @@
+openapi: 3.0.3
+info:
+  title: Privacy PSI Engine API
+  version: 1.0.0
+  description: >
+    隐私计算引擎（engine-py / SecretFlow）对外暴露的 PSI（安全求交）编排接口。
+    这是 **Java 编排层（orchestrator-java）↔ Python 计算引擎（engine-py）** 之间的权威契约。
+    先改本契约、再改实现。
+
+    多租户红线：当参与方分属不同租户（跨租户联合计算）时，请求必须显式携带
+    `crossTenantAuthorized: true`，否则引擎拒绝（默认不串）。
+
+    脱敏约定：示例数据一律虚构占位（`acme` / `tenant-demo` / `example.com`）。
+servers:
+  - url: http://engine-py:8000
+    description: docker-compose.local 内部地址
+  - url: http://localhost:8000
+    description: 本地直跑
+
+paths:
+  /healthz:
+    get:
+      summary: 健康检查
+      operationId: health
+      responses:
+        "200":
+          description: 引擎存活
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /v1/psi/run:
+    post:
+      summary: 运行一次 PSI（安全求交）
+      operationId: runPsi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PsiRunRequest"
+      responses:
+        "200":
+          description: 求交完成
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PsiRunResult"
+        "403":
+          description: 跨租户联合计算未显式授权（默认不串）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PsiError"
+        "422":
+          description: 请求不合法（如参与方数量不为 2）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PsiError"
+
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP]
+        engine:
+          type: string
+          description: 当前生效的 PSI 后端
+          example: mock
+    Party:
+      type: object
+      required: [partyId, tenant, elements]
+      properties:
+        partyId:
+          type: string
+          description: 参与方标识（节点）
+          example: party-a
+        tenant:
+          type: string
+          description: 参与方所属租户
+          example: tenant-demo
+        elements:
+          type: array
+          description: 该方持有的求交元素（mock 明文；真实 PSI 不出域）
+          items:
+            type: string
+          example: ["alice@example.com", "bob@example.com"]
+    PsiRunRequest:
+      type: object
+      required: [jobId, initiatorTenant, parties]
+      properties:
+        jobId:
+          type: string
+          example: job-0001
+        initiatorTenant:
+          type: string
+          description: 发起方租户
+          example: tenant-demo
+        parties:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/Party"
+        crossTenantAuthorized:
+          type: boolean
+          default: false
+          description: 跨租户联合计算的显式授权开关；默认 false（不串）
+    PsiRunResult:
+      type: object
+      required: [jobId, status, intersectionSize]
+      properties:
+        jobId:
+          type: string
+          example: job-0001
+        status:
+          type: string
+          enum: [SUCCEEDED, REJECTED, FAILED]
+        intersectionSize:
+          type: integer
+          example: 1
+        intersection:
+          type: array
+          description: 交集元素（mock 后端返回；真实 PSI 后端可置空仅返回基数）
+          items:
+            type: string
+          example: ["bob@example.com"]
+        message:
+          type: string
+          example: ok
+    PsiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [CROSS_TENANT_NOT_AUTHORIZED, INVALID_REQUEST, ENGINE_ERROR]
+        message:
+          type: string
+          example: cross-tenant PSI requires explicit authorization

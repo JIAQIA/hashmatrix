@@ -21,6 +21,8 @@
 |--|--|--|--|
 | [`icd/tenant-context-headers`](./icd/tenant-context-headers-icd.md) | ICD | gateway | draft |
 | [`icd/governance-metadata`](./icd/governance-metadata-icd.md) | ICD | governance | draft |
+| [`openapi/privacy-psi-v1`](./openapi/privacy-psi-v1.yaml) | OpenAPI | privacy | draft |
+| [`proto/privacy-psi`](./proto/privacy/v1/psi.proto) | proto | privacy | draft |
 
 > 机器可读索引见 [`registry.yaml`](./registry.yaml)（producers/consumers 全量）；新增契约务必同步登记。
 
