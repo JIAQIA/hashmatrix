@@ -1,0 +1,177 @@
+asyncapi: 2.6.0
+info:
+  title: Governance · Metadata Change Events
+  version: 1.0.0
+  description: |
+    数据治理（`services/governance`）对外发布的**异步元数据变更事件**契约，由 ICD 草案
+    [`icd/governance-metadata`](../icd/governance-metadata-icd.md) §3 细化而来。同步供数 REST 见
+    [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)。
+
+    **producer**：`hashmatrix-governance`。**subscribers**：BI（`tools-bi`）/ 安全（`security`）/
+    数据底座与质量（`data-foundation`）/ 平台公共调度（`platform-common`）。
+
+    **传输**：以 Kafka topic 为主干（channel 名即 topic：`hashmatrix.governance.metadata.*`）。
+    纯 Kafka vs Kafka + webhook 桥接的最终取舍仍**待评审确认**（见 ICD §5），桥接不改变本 payload 契约。
+
+    **约定**：envelope 必带 `schemaVersion` + `tenant` + `occurredAt`，消费方一律 **tolerant reader**
+    （忽略未知字段、不依赖顺序）；事件均**租户感知**，跨租户默认不可见；字段级敏感信息按 `security`
+    分类分级标签裁剪后再出。
+
+    🔴 红线：示例一律脱敏（`acme` / `tenant-demo` / `example.com`），不含任何真实信息。
+  contact:
+    name: hashmatrix platform
+    url: https://github.com/HashMatrixData/hashmatrix
+    email: platform@example.com          # 脱敏占位
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  x-contract:                       # 契约元数据（front-matter 等价物，见 CONVENTIONS §1）
+    id: asyncapi/governance-metadata
+    owner: hashmatrix-governance
+    status: draft
+    producers: [hashmatrix-governance]
+    consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-data-foundation, hashmatrix-platform-common]
+tags:
+  - name: governance
+    description: 数据治理域事件
+  - name: metadata
+    description: 元数据变更
+defaultContentType: application/json
+servers:
+  kafka:
+    url: kafka.example.com:9092          # 脱敏占位
+    protocol: kafka
+    description: data-foundation 提供的 Kafka 主干（占位地址）
+channels:
+  hashmatrix.governance.metadata.model.changed:
+    description: 元模型结构变更（发布新版本 / 改属性·关系）。订阅方：集成调度、BI。
+    subscribe:
+      operationId: onModelChanged
+      description: governance 发布元模型结构变更事件。
+      message:
+        $ref: "#/components/messages/ModelChangedEvent"
+  hashmatrix.governance.metadata.collect.anomaly:
+    description: 采集异动（批量删表 / 结构突变 / 字段类型冲突）。订阅方：BI、质量、告警。
+    subscribe:
+      operationId: onCollectAnomaly
+      description: governance 发布采集异动事件。
+      message:
+        $ref: "#/components/messages/CollectAnomalyEvent"
+  hashmatrix.governance.metadata.instance.changed:
+    description: 实例入库 / 认领 / 安全标签回写。订阅方：质量、数据服务。
+    subscribe:
+      operationId: onInstanceChanged
+      description: governance 发布实例变更事件。
+      message:
+        $ref: "#/components/messages/InstanceChangedEvent"
+components:
+  messages:
+    ModelChangedEvent:
+      name: ModelChangedEvent
+      title: 元模型结构变更事件
+      summary: 元模型发布新版本或属性/关系变更
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: "#/components/schemas/ModelChangedData"
+    CollectAnomalyEvent:
+      name: CollectAnomalyEvent
+      title: 采集异动事件
+      summary: 采集过程中的结构突变 / 批量删除 / 类型冲突
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: "#/components/schemas/CollectAnomalyData"
+    InstanceChangedEvent:
+      name: InstanceChangedEvent
+      title: 实例变更事件
+      summary: 实例入库 / 认领 / 安全标签回写
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: "#/components/schemas/InstanceChangedData"
+  schemas:
+    EventEnvelope:
+      type: object
+      description: 统一事件信封（所有元数据变更事件共用）。
+      required: [eventId, schemaVersion, tenant, occurredAt]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        schemaVersion:
+          type: integer
+          example: 1
+        tenant:
+          type: string
+          example: tenant-demo
+        occurredAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:00:00Z"
+    ModelChangedData:
+      type: object
+      required: [modelId, changeType]
+      properties:
+        modelId:
+          type: string
+          example: model-orders
+        modelVersion:
+          type: integer
+          example: 2
+        changeType:
+          type: string
+          enum: [created, updated, attribute_changed, relation_changed]
+          example: attribute_changed
+    CollectAnomalyData:
+      type: object
+      required: [source, anomalyType, severity]
+      properties:
+        source:
+          type: string
+          description: 采集源标识（脱敏占位）
+          example: source-acme
+        anomalyType:
+          type: string
+          enum: [bulk_table_drop, schema_shift, type_conflict]
+          example: schema_shift
+        severity:
+          type: string
+          enum: [low, medium, high]
+          example: high
+        affected:
+          type: array
+          items:
+            type: string
+          example: [orders]
+    InstanceChangedData:
+      type: object
+      required: [instanceId, changeType]
+      properties:
+        instanceId:
+          type: string
+          example: asset-1001
+        changeType:
+          type: string
+          enum: [ingested, claimed, security_label_updated]
+          example: security_label_updated
+        classification:
+          type: string
+          description: 回写的分类分级标签（由 security 裁定）
+          example: PII

@@ -46,6 +46,43 @@ contracts:
     producers: [hashmatrix-privacy]
     consumers: [hashmatrix-privacy]
 
-# 占位/计划中（待对应 schema 落地后登记 path）：
-#   - openapi/governance-metadata   (governance 供数 REST，icd/governance-metadata §2)
-#   - asyncapi/governance-metadata  (governance 变更事件，icd/governance-metadata §3)
+  - id: openapi/control-plane-v1
+    type: openapi
+    path: openapi/control-plane-v1.yaml
+    status: draft          # 控制平面北向：租户注册/审批/开通状态/生命周期/配额查询
+    version: 1.0.0
+    producers: [hashmatrix-control-plane]
+    consumers: [hashmatrix-webui]
+
+  - id: icd/control-plane-provisioning
+    type: icd
+    path: icd/control-plane-provisioning-icd.md
+    status: draft          # 租户目录状态机 + 外呼开通边界（Keycloak/Helm/datastore/ESO，仅契约）
+    version: 1.0.0
+    producers: [hashmatrix-control-plane]
+    consumers: [hashmatrix-webui]
+
+  - id: openapi/governance-metadata-v1
+    type: openapi
+    path: openapi/governance-metadata-v1.yaml
+    status: draft          # governance 同步供数 REST（icd/governance-metadata §2 细化）
+    version: 1.0.0
+    producers: [hashmatrix-governance]
+    consumers:
+      - hashmatrix-tools-bi
+      - hashmatrix-security
+      - hashmatrix-webui
+      - hashmatrix-data-foundation
+      - hashmatrix-platform-common
+
+  - id: asyncapi/governance-metadata
+    type: asyncapi
+    path: asyncapi/governance-metadata.yaml
+    status: draft          # governance 异步元数据变更事件（icd/governance-metadata §3 细化）
+    version: 1.0.0
+    producers: [hashmatrix-governance]
+    consumers:
+      - hashmatrix-tools-bi
+      - hashmatrix-security
+      - hashmatrix-data-foundation
+      - hashmatrix-platform-common

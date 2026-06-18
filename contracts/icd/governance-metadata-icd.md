@@ -8,18 +8,22 @@ consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-webui, hashmatr
 since: 2026-06-18
 ---
 
-# ICD 草案 · governance 元数据供数与变更事件
+# ICD · governance 元数据供数与变更事件
 
-> 状态：**草案（待评审）**。本文先登记 governance 对外的跨子系统接口轮廓，作为契约先行的占位；
-> 正式 OpenAPI（`openapi/`）与字段级 schema 随 governance 设计推进逐步细化。
+> 状态：**草案（待评审）**。本文登记 governance 对外的跨子系统接口轮廓与边界；字段级 schema 已细化落地：
+> - 同步供数 REST → [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)（本文 §2）
+> - 异步变更事件 → [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)（本文 §3）
+>
+> 本 ICD 保留接口**轮廓 + 边界（DG3/DG4）**作为设计事实源；端点/字段/事件 payload 以上述 schema 为权威。
 > 来源：评审数据治理产品原型时，原型已列出对外供数 API 与变更事件（见原型 `openApis` / `webhooks`）。
 
 ## 1. 背景
 
 `governance`（数据治理）不是孤立 UI，而是平台的**元数据供数中枢**：对外提供**同步供数 API**，并对外发**异步元数据变更事件**，被资产门户 / BI(`tools-bi`) / 数据质量 / 集成调度 / 数据服务等多个子系统消费。这些是跨子系统契约，须在本 ICD 统一登记、先改契约再改实现。
 
-## 2. 同步供数 API（REST · OpenAPI 3，待细化）
+## 2. 同步供数 API（REST · OpenAPI 3.1）
 
+> 字段级 schema 见 [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)；下表为接口轮廓与消费方映射。
 > 边界（DG3）：**元数据只出索引 + API**，门户/BI 作为独立消费方调用，不直连 governance 内部库。
 > 鉴权：服务账号 + 凭证（经网关 APISIX 校验），调用方携带租户上下文（`X-Tenant-*`），返回结果按租户隔离。
 
@@ -35,6 +39,8 @@ since: 2026-06-18
 > 注：`/api/perm/*` 仅做**权限要素与状态透传**；分类分级策略与审批归 `security`（DG4/DG6）。
 
 ## 3. 异步元数据变更事件（事件驱动）
+
+> 事件 payload schema 见 [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)；下表为事件轮廓与订阅方映射。
 
 | 事件 | 触发 | 主要订阅方 | 用途 |
 |--|--|--|--|
@@ -52,7 +58,7 @@ since: 2026-06-18
 
 ## 5. 待办
 
-- [ ] 细化各 API 的请求/响应 schema → `openapi/governance-metadata.yaml`
-- [ ] 定事件 payload schema 与 topic 命名规范
+- [x] 细化各 API 的请求/响应 schema → [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)
+- [x] 定事件 payload schema 与 topic 命名规范 → [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)（topic = `hashmatrix.governance.metadata.*`）
 - [ ] 确认事件传输方式（纯 Kafka vs Kafka+webhook 桥接）
 - [ ] 与 `security`（权限要素/标签）、`tools-bi`（取数/订阅）、数据服务 对齐消费契约

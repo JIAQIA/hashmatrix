@@ -6,3 +6,4 @@
 |--|--|--|
 | [`tenant-context-headers`](./tenant-context-headers-icd.md) | gateway | draft |
 | [`governance-metadata`](./governance-metadata-icd.md) | governance | draft |
+| [`control-plane-provisioning`](./control-plane-provisioning-icd.md) | control-plane | draft |

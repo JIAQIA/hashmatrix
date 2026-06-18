@@ -1,0 +1,546 @@
+openapi: 3.1.0
+info:
+  title: Control Plane · Tenant Lifecycle API
+  version: 1.0.0
+  description: |
+    控制平面（`services/control-plane`）对外的**租户注册 / 审批 / 开通状态 / 生命周期 / 配额查询**北向 REST 契约。
+
+    控制平面是**跨租户单例**：自助注册 → 审批门控 → 命令式 provision（Keycloak Organizations + Helm SDK + 数据存储 + ESO）
+    → 回写租户目录。设计见 `docs/architecture/05-多租户与控制平面.md` §2/§4 与 `docs/00-主仓初始化-spec.md` §2。
+
+    **租户目录状态机**：`registered → approving → provisioning → active → suspended → deleted`
+    （权威枚举见 `TenantStatus`）。状态迁移规则、以及控制平面**外呼开通边界**（Keycloak / Helm / 数据存储 / ESO，
+    仅契约不含实现）见 [`contracts/icd/control-plane-provisioning-icd.md`](../icd/control-plane-provisioning-icd.md)。
+
+    **鉴权与租户上下文**：经网关 APISIX 校验 JWT 后调用；平台运营管理员（admin 平面）可操作全部端点，
+    租户自助注册为受限子集。控制平面信任网关注入的 `X-Tenant-*`（见 [`icd/tenant-context-headers`](../icd/tenant-context-headers-icd.md)），
+    本契约不要求调用方自带租户头。
+
+    🔴 红线：示例一律脱敏（`acme` / `tenant-demo` / `example.com`），不含任何真实信息。
+  contact:
+    name: hashmatrix platform
+    url: https://github.com/HashMatrixData/hashmatrix
+  x-contract:                       # 契约元数据（front-matter 等价物，见 CONVENTIONS §1）
+    id: openapi/control-plane-v1
+    owner: hashmatrix-control-plane
+    status: draft
+    producers: [hashmatrix-control-plane]
+    consumers: [hashmatrix-webui]
+servers:
+  - url: https://api.example.com/control-plane     # 脱敏占位；实际经网关路由暴露
+    description: 经网关暴露的控制平面 API（占位域名）
+security:
+  - bearerAuth: []
+tags:
+  - name: tenants
+    description: 租户注册与租户目录
+  - name: approval
+    description: 审批门控
+  - name: provisioning
+    description: 开通状态
+  - name: lifecycle
+    description: 生命周期（停用 / 恢复 / 注销）
+  - name: quota
+    description: 配额查询
+paths:
+  /v1/tenants:
+    post:
+      tags: [tenants]
+      summary: 自助注册租户
+      description: 创建一条租户目录记录，初始状态 `registered`，等待审批门控。`tenantId` 全局唯一。
+      operationId: registerTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantRegistration"
+      responses:
+        "201":
+          description: 已注册（待审批）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: tenantId 已被占用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [tenants]
+      summary: 列出租户目录
+      description: 分页列出租户目录，可按状态过滤。运营管理员视图。
+      operationId: listTenants
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 按租户状态过滤
+          schema:
+            $ref: "#/components/schemas/TenantStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+      responses:
+        "200":
+          description: 租户目录分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantList"
+  /v1/tenants/{tenantId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      tags: [tenants]
+      summary: 取租户目录条目
+      description: 返回单个租户的目录数据模型（状态 / 配额 / 身份与数据平面接入信息）。
+      operationId: getTenant
+      responses:
+        "200":
+          description: 租户目录条目
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [lifecycle]
+      summary: 注销租户
+      description: |
+        注销租户并异步 deprovision（回收 namespace / schema / org 等）。受理后置为 `deleted`（终态）。
+        允许态：`provisioning`（放弃开通 / 回收半成品）/ `active` / `suspended`；其它态返回 `409`。
+        deprovision 进度复用
+        [`GET /v1/tenants/{tenantId}/provisioning`](#operation/getProvisioningStatus)（`phase` 表征回收进度）。
+      operationId: deleteTenant
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "202":
+          description: 已受理注销，异步 deprovision 进行中
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StateConflict"
+  /v1/tenants/{tenantId}/approval:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    post:
+      tags: [approval]
+      summary: 审批裁决
+      description: |
+        对处于 `registered` / `approving` 的租户做审批裁决。
+        `approve` → 置为 `provisioning` 并启动命令式开通；`reject` → 置为 `deleted`（关闭，带 `reason`）。
+      operationId: decideApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecision"
+      responses:
+        "200":
+          description: 裁决已记录，状态已迁移
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StateConflict"
+  /v1/tenants/{tenantId}/provisioning:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      tags: [provisioning]
+      summary: 查询开通状态
+      description: |
+        返回命令式开通（或注销 deprovision）的整体阶段与分步进度。分步 `target`
+        对应控制平面外呼边界：`keycloak`（建 Organization）/ `helm`（per-tenant release）/
+        `datastore`（schema·catalog）/ `secrets`（ESO 注入）。边界细节见 provisioning ICD。
+      operationId: getProvisioningStatus
+      responses:
+        "200":
+          description: 开通状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvisioningStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/tenants/{tenantId}/suspend:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    post:
+      tags: [lifecycle]
+      summary: 停用租户
+      description: 冻结租户访问（保留数据与资源）。仅当状态为 `active` 时允许；`active → suspended`。
+      operationId: suspendTenant
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: 已停用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StateConflict"
+  /v1/tenants/{tenantId}/resume:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    post:
+      tags: [lifecycle]
+      summary: 恢复租户
+      description: 解冻租户访问。仅当状态为 `suspended` 时允许；`suspended → active`。
+      operationId: resumeTenant
+      responses:
+        "200":
+          description: 已恢复
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StateConflict"
+  /v1/tenants/{tenantId}/quota:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      tags: [quota]
+      summary: 查询租户配额
+      description: |
+        返回租户的配额额度（`spec`）与当前用量（`usage`）。配额为硬限（K8s ResourceQuota +
+        业务配额：用户数 / 数据量 / 作业数）；计量计费仅预留接口（合同制非按量）。
+      operationId: getTenantQuota
+      responses:
+        "200":
+          description: 配额额度与用量
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak 颁发的 JWT，经网关 APISIX 校验；控制平面信任网关注入的身份与 X-Tenant-* 上下文。
+  parameters:
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      description: 稳定租户标识（数据/计算隔离路由键）
+      schema:
+        type: string
+        pattern: "^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$"
+        example: tenant-demo
+  responses:
+    BadRequest:
+      description: 请求不合法
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: 租户不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    StateConflict:
+      description: 与当前状态机不允许的迁移冲突
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    TenantStatus:
+      type: string
+      description: 租户目录状态机（迁移规则见 provisioning ICD）。
+      enum: [registered, approving, provisioning, active, suspended, deleted]
+      example: active
+    TenantRegistration:
+      type: object
+      required: [tenantId, displayName, adminEmail]
+      properties:
+        tenantId:
+          type: string
+          description: 申请的稳定租户标识（隔离路由键）；全局唯一。
+          pattern: "^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$"
+          example: tenant-demo
+        displayName:
+          type: string
+          description: 租户显示名
+          example: Demo Tenant
+        adminEmail:
+          type: string
+          format: email
+          description: 租户管理员邮箱（开通后用于初始化 Keycloak 管理员）
+          example: admin@example.com
+        requestedQuota:
+          $ref: "#/components/schemas/QuotaSpec"
+    Tenant:
+      type: object
+      description: 租户目录条目（控制平面回写的状态 / 配额 / 接入信息）。
+      required: [tenantId, displayName, status, createdAt]
+      properties:
+        tenantId:
+          type: string
+          example: tenant-demo
+        displayName:
+          type: string
+          example: Demo Tenant
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        organization:
+          $ref: "#/components/schemas/OrganizationRef"
+        dataPlane:
+          $ref: "#/components/schemas/DataPlaneRef"
+        quota:
+          $ref: "#/components/schemas/QuotaSpec"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:05:00Z"
+    TenantList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tenant"
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 1
+    OrganizationRef:
+      type: object
+      description: Keycloak Organization 引用（开通时建立；身份隔离 = 单 realm，org = 租户）。
+      properties:
+        orgId:
+          type: string
+          description: Keycloak Organization 唯一 id
+          example: 5f3a1c00-0000-4000-8000-000000000001
+        orgAlias:
+          type: string
+          description: Organization 别名（部署内稳定）
+          example: tenant-demo
+    DataPlaneRef:
+      type: object
+      description: 数据平面接入信息（开通后回写；租户 `deleted` 后资源已回收，此处仅作历史快照，不可再路由）。
+      properties:
+        namespace:
+          type: string
+          description: 该租户的 K8s 命名空间
+          example: tenant-demo
+        dbSchema:
+          type: string
+          description: 平台业务库（PG）schema/db 名
+          example: tenant_demo
+        dorisCatalog:
+          type: string
+          description: 数据仓 Doris catalog（湖 Paimon database 同理）
+          example: tenant_demo
+        helmRelease:
+          type: string
+          description: per-tenant Helm release 名
+          example: tenant-demo
+    ApprovalDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+          example: approve
+        reason:
+          type: string
+          description: 裁决理由；`reject` 时必填（驳回置租户为 `deleted` 不可逆，须留审计）。
+          example: ok
+      if:
+        properties:
+          decision:
+            const: reject
+      then:
+        required: [reason]
+    ProvisioningStatus:
+      type: object
+      description: 命令式开通 / 注销 deprovision 的整体阶段与分步进度。
+      required: [tenantId, phase, steps]
+      properties:
+        tenantId:
+          type: string
+          example: tenant-demo
+        phase:
+          $ref: "#/components/schemas/ProvisioningPhase"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:01:00Z"
+        finishedAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:05:00Z"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProvisioningStep"
+    ProvisioningPhase:
+      type: string
+      description: 开通整体阶段。`failed` 时租户停在 `provisioning`，可重试，不进 `active`。
+      enum: [pending, in_progress, succeeded, failed]
+      example: succeeded
+    ProvisioningStep:
+      type: object
+      description: 单个外呼开通步骤（target 对应控制平面外呼边界，见 provisioning ICD）。
+      required: [target, status]
+      properties:
+        target:
+          type: string
+          description: 外呼目标
+          enum: [keycloak, helm, datastore, secrets]
+          example: helm
+        status:
+          type: string
+          enum: [pending, in_progress, succeeded, failed, skipped]
+          example: succeeded
+        message:
+          type: string
+          example: per-tenant release applied
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-06-18T08:03:00Z"
+    QuotaSpec:
+      type: object
+      description: 配额额度（硬限）。compute 对应 K8s ResourceQuota，其余为业务配额。
+      properties:
+        maxUsers:
+          type: integer
+          description: 用户数硬限
+          example: 50
+        maxStorageGi:
+          type: integer
+          description: 数据量硬限（GiB）
+          example: 500
+        maxConcurrentJobs:
+          type: integer
+          description: 并发作业数硬限
+          example: 10
+        compute:
+          $ref: "#/components/schemas/ComputeQuota"
+    ComputeQuota:
+      type: object
+      properties:
+        cpuCores:
+          type: integer
+          example: 16
+        memoryGi:
+          type: integer
+          example: 64
+    QuotaStatus:
+      type: object
+      required: [tenantId, spec, usage]
+      properties:
+        tenantId:
+          type: string
+          example: tenant-demo
+        spec:
+          $ref: "#/components/schemas/QuotaSpec"
+        usage:
+          $ref: "#/components/schemas/QuotaUsage"
+    QuotaUsage:
+      type: object
+      description: 当前用量快照（计量计费仅预留，不按量计费）。
+      properties:
+        users:
+          type: integer
+          example: 12
+        storageGi:
+          type: integer
+          example: 120
+        runningJobs:
+          type: integer
+          example: 2
+        compute:
+          $ref: "#/components/schemas/ComputeQuota"
+    ReasonRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: scheduled maintenance
+    Error:
+      type: object
+      description: 统一错误信封（后续可抽取为平台级 error-envelope ICD）。
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 机器可读错误码
+          example: TENANT_NOT_FOUND
+        message:
+          type: string
+          example: tenant not found
+        traceId:
+          type: string
+          description: 链路追踪 id（便于排障）
+          example: "00000000000000000000000000000001"
