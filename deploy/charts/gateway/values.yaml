@@ -1,0 +1,29 @@
+# gateway 子 chart values（占位）。
+# 落地时此处对接 APISIX 官方 chart，并把 submodule services/gateway 的声明式配置/插件
+# 渲染为 ConfigMap 注入 APISIX（standalone / config_provider: yaml，无 etcd）。
+
+# ── APISIX 官方 chart 透传（占位，待 dependencies 启用后生效）──
+apisix:
+  enabled: false
+  # etcd:
+  #   enabled: false        # 本平台采用 standalone 声明式配置，不使用 etcd
+  # apisix:
+  #   configurationSnippet: {}
+
+# ── 网关自定义配置注入钩子（占位）──
+# config-as-code 源：services/gateway/apisix/{config.yaml,apisix.yaml}
+gatewayConfig:
+  # 将 apisix.yaml（routes/upstreams/插件）渲染为 ConfigMap 挂载到 APISIX
+  declarativeConfigFrom: ""     # e.g. configMap 名或外部引用（待定）
+  # 自定义 Lua 插件（tenant-context / audit-log）的挂载方式（initContainer / image layer，待定）
+  customPlugins: []
+
+# ── OIDC / Keycloak 对接（占位，部署级注入）──
+oidc:
+  discovery: ""                 # e.g. https://<keycloak-host>/realms/hashmatrix/.well-known/openid-configuration
+  clientId: "apisix"
+
+# ── 多租户 / 部署级品牌（占位）──
+tenancy:
+  # 品牌为部署级（部署期注入），不按租户运行期换肤
+  brandingProfile: ""

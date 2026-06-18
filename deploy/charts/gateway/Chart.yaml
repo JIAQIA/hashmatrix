@@ -1,0 +1,26 @@
+apiVersion: v2
+name: gateway
+description: |
+  南北向网关子 chart（占位）。封装 APISIX 部署 + 本平台自定义网关配置/插件的注入钩子。
+  实际配置/插件源在 submodule services/gateway（standalone 声明式，无 etcd）。
+type: application
+
+# 占位版本：尚未发布。
+version: 0.0.0-placeholder
+appVersion: "0.0.0"
+
+# APISIX 官方 chart 作为依赖（占位，未启用）。落地时取消注释并锁定版本。
+# dependencies:
+#   - name: apisix
+#     version: "<pin>"
+#     repository: "https://charts.apiseven.com"
+
+keywords:
+  - gateway
+  - apisix
+  - oidc
+  - multi-tenant
+
+home: https://github.com/HashMatrixData/hashmatrix-gateway
+sources:
+  - https://github.com/HashMatrixData/hashmatrix-gateway
