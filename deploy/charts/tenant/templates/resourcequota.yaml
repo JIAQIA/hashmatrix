@@ -1,0 +1,13 @@
+{{- /* 租户配额硬限（K8s ResourceQuota）。 */ -}}
+{{- if .Values.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "tenant.id" . }}-quota
+  namespace: {{ include "tenant.namespace" . }}
+  labels:
+    {{- include "tenant.labels" . | nindent 4 }}
+spec:
+  hard:
+    {{- toYaml .Values.resourceQuota.hard | nindent 4 }}
+{{- end }}

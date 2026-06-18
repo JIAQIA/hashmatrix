@@ -1,0 +1,16 @@
+# ── 生产环境覆盖（分层第三层）。占位阶段子 chart 仍全关，仅打环境标签。 ──
+global:
+  env: prod
+  # imageRegistry: registry.example.com/hashmatrix
+
+baseNamespaces:
+  podSecurity: restricted   # 生产强制 restricted
+
+# 子 chart 落地后在此按需开启（生产建议先在 test 验证）：
+# gateway:
+#   enabled: true
+
+# 有状态依赖：生产优先社区 Operator（PG=CloudNativePG / Kafka=Strimzi / ...），
+# 取消 Chart.yaml 对应注释 + helm dependency update 钉版本后开启：
+# postgresql:
+#   enabled: true

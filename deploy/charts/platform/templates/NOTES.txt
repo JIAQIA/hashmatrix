@@ -1,0 +1,13 @@
+platform 共享基座 umbrella 已渲染（env={{ .Values.global.env | default "base" }}）。
+
+本 chart 仅管「长生命周期共享基座」：
+  · 基座命名空间：{{ if .Values.baseNamespaces.create }}已创建 {{ range $k, $v := .Values.baseNamespaces.names }}{{ $v }} {{ end }}{{ else }}未创建（baseNamespaces.create=false）{{ end }}
+  · 分系统子 chart：占位阶段默认关闭，按 <name>.enabled 在 values-<env>.yaml 开启
+  · 有状态依赖：钉版本但默认禁用，启用前取消 Chart.yaml 注释并 `helm dependency update`
+
+租户数据平面（namespace-per-tenant / quota / netpol / ESO / 服务实例）**不在本 chart**——
+见 deploy/charts/tenant，由控制平面按租户渲染应用（provision 不走 Argo）。
+
+下一步：
+  helm template platform deploy/charts/platform -f deploy/values/values.yaml -f deploy/values/values-test.yaml
+关联：HashMatrixData/hashmatrix#2

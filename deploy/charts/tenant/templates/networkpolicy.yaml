@@ -1,0 +1,49 @@
+{{- /*
+租户网络隔离：默认拒绝所有入站 + 放行（DNS 出站 / 同租户 ns 内 / 指定共享基座 ns）。
+强隔离基线——监管/大客户可在此基础上收紧或升 vCluster。
+*/ -}}
+{{- if .Values.networkPolicy.enabled }}
+{{- $ns := include "tenant.namespace" . }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tenant.id" . }}-default-deny
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tenant.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 同租户 namespace 内互通
+    - from:
+        - podSelector: {}
+    {{- range .Values.networkPolicy.allowFromNamespaces }}
+    # 来自共享基座 {{ . }} 的入站（南北向经网关）
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+    {{- end }}
+  egress:
+    # DNS（kube-dns）
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 同租户 namespace 内互通
+    - to:
+        - podSelector: {}
+    {{- range .Values.networkPolicy.allowToNamespaces }}
+    # 出站到共享基座 {{ . }}（数据/可观测）
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+    {{- end }}
+{{- end }}

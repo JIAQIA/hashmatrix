@@ -1,0 +1,19 @@
+apiVersion: v2
+name: security
+description: |
+  数据安全分系统（占位子 chart）。由 umbrella chart `platform` 按 `security.enabled` 条件聚合。
+  实际部署模板由对应 submodule services/security 贡献后逐步充实（schema-first / 占位先行）。
+type: application
+
+# 占位版本：尚未发布。
+version: 0.0.0-placeholder
+appVersion: "0.0.0"
+
+keywords:
+  - hashmatrix
+  - security
+  - Java
+
+home: https://github.com/HashMatrixData/hashmatrix-security
+sources:
+  - https://github.com/HashMatrixData/hashmatrix-security

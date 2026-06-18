@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# platform umbrella —— BASE values（分层第一层：values.yaml(base)）。
+# 叠加顺序：本文件(base) → deploy/values/values.yaml(共享 profile) → values-<env>.yaml(prod/test/xc)。
+# 安全默认：所有子 chart 与有状态依赖默认 **关闭**，由各环境 values 显式开启。
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  # 部署级品牌（部署期注入，不按租户运行期换肤）。
+  brandingProfile: ""
+  # 镜像仓基址（信创 xc 环境切私有/国产化镜像仓）。
+  imageRegistry: ""
+  # 环境标识（base/prod/test/xc），由 values-<env>.yaml 覆盖，仅用于打标签/审计。
+  env: base
+
+# ── 共享基座命名空间（长生命周期；可选由本 chart 创建）──
+baseNamespaces:
+  create: true
+  # podSecurity profile 写入 namespace 标签（restricted/baseline/privileged）。
+  podSecurity: restricted
+  names:
+    gateway: gateway
+    app: app
+    data: data
+    observability: observability
+
+# ── 分系统子 chart 开关（占位阶段默认全关；对应 Chart.yaml dependencies 的 condition）──
+gateway:
+  enabled: false
+governance:
+  enabled: false
+security:
+  enabled: false
+tools-bi:
+  enabled: false
+privacy:
+  enabled: false
+data-foundation:
+  enabled: false
+platform-common:
+  enabled: false
+control-plane:
+  enabled: false
+
+# ── 有状态依赖开关（对应 Chart.yaml 中**注释**的 dependencies；启用前需先取消注释 + helm dependency update）──
+# 此处仅占位记录开关，默认 false；启用某依赖时在 values-<env>.yaml 置 true。
+postgresql:
+  enabled: false
+kafka:
+  enabled: false
+doris:
+  enabled: false
+milvus:
+  enabled: false
+minio:
+  enabled: false
+redis:
+  enabled: false
+elasticsearch:
+  enabled: false

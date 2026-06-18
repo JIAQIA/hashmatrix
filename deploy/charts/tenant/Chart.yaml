@@ -1,0 +1,20 @@
+apiVersion: v2
+name: tenant
+description: |
+  租户数据平面「开通单元」chart。一次 `helm install/upgrade` = 一个租户的 release：
+  namespace-per-tenant + ResourceQuota/LimitRange + NetworkPolicy + ESO 注入 + schema/db 上下文 + 服务实例占位。
+  由 control-plane 经 Helm SDK 渲染应用（命令式开通，**不依赖 Git/Argo**）。
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - hashmatrix
+  - multi-tenant
+  - namespace-per-tenant
+  - provisioning
+
+home: https://github.com/HashMatrixData/hashmatrix
+sources:
+  - https://github.com/HashMatrixData/hashmatrix

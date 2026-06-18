@@ -1,0 +1,85 @@
+{{- /*
+租户服务实例（数据平面：在 tenant-<id> 内拉起的分系统实例）。
+占位：以通用 Deployment+Service 表征「服务实例」并绑定租户上下文（X-Tenant-Id 注入）。
+落地时由控制平面改为渲染对应分系统子 chart；image.repository 为空的条目跳过（不产出非法 Deployment）。
+*/ -}}
+{{- $root := . }}
+{{- $ns := include "tenant.namespace" . }}
+{{- range .Values.services }}
+{{- if and .image .image.repository }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tenant.labels" $root | nindent 4 }}
+    app.kubernetes.io/name: {{ .name }}
+    app.kubernetes.io/component: tenant-service
+spec:
+  replicas: {{ .replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .name }}
+      hashmatrix.io/tenant: {{ include "tenant.id" $root | quote }}
+  template:
+    metadata:
+      labels:
+        {{- include "tenant.labels" $root | nindent 8 }}
+        app.kubernetes.io/name: {{ .name }}
+        app.kubernetes.io/component: tenant-service
+    spec:
+      # Pod 级安全上下文：默认满足 PodSecurity `restricted`（租户 ns enforce restricted）。
+      securityContext:
+        {{- if .podSecurityContext }}
+        {{- toYaml .podSecurityContext | nindent 8 }}
+        {{- else }}
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        {{- end }}
+      containers:
+        - name: {{ .name }}
+          image: "{{ .image.repository }}:{{ .image.tag | default $root.Chart.AppVersion }}"
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          # 容器级安全上下文：默认满足 `restricted`（可被 service.securityContext 覆盖）。
+          securityContext:
+            {{- if .securityContext }}
+            {{- toYaml .securityContext | nindent 12 }}
+            {{- else }}
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .port | default 8080 }}
+          env:
+            # 租户上下文注入（与网关下发的 X-Tenant-* 一致）。
+            - name: HASHMATRIX_TENANT_ID
+              value: {{ include "tenant.id" $root | quote }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tenant.labels" $root | nindent 4 }}
+    app.kubernetes.io/name: {{ .name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ .name }}
+    hashmatrix.io/tenant: {{ include "tenant.id" $root | quote }}
+  ports:
+    - name: http
+      port: {{ .port | default 8080 }}
+      targetPort: http
+{{- end }}
+{{- end }}

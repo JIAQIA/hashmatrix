@@ -1,0 +1,17 @@
+{{- /* 租户默认资源区间（LimitRange）：缺省 requests/limits，避免裸 Pod 吃满配额。 */ -}}
+{{- if .Values.limitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "tenant.id" . }}-limits
+  namespace: {{ include "tenant.namespace" . }}
+  labels:
+    {{- include "tenant.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      default:
+        {{- toYaml .Values.limitRange.default | nindent 8 }}
+      defaultRequest:
+        {{- toYaml .Values.limitRange.defaultRequest | nindent 8 }}
+{{- end }}

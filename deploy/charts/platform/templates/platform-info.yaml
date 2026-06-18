@@ -1,0 +1,25 @@
+{{- /*
+平台基座元数据 ConfigMap：记录本次渲染的环境/品牌/已启用子系统，便于排障与审计。
+不含任何机密（红线：secret 走 ESO，不入库）。
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.name" . }}-info
+  namespace: {{ .Values.baseNamespaces.names.observability | default "observability" }}
+  labels:
+    {{- include "platform.labels" . | nindent 4 }}
+data:
+  env: {{ .Values.global.env | default "base" | quote }}
+  brandingProfile: {{ .Values.global.brandingProfile | default "" | quote }}
+  chartVersion: {{ .Chart.Version | quote }}
+  enabledSubsystems: {{ without (list
+      (ternary "gateway" "" .Values.gateway.enabled)
+      (ternary "governance" "" .Values.governance.enabled)
+      (ternary "security" "" .Values.security.enabled)
+      (ternary "tools-bi" "" (index .Values "tools-bi").enabled)
+      (ternary "privacy" "" .Values.privacy.enabled)
+      (ternary "data-foundation" "" (index .Values "data-foundation").enabled)
+      (ternary "platform-common" "" (index .Values "platform-common").enabled)
+      (ternary "control-plane" "" (index .Values "control-plane").enabled)
+    ) "" | join "," | quote }}

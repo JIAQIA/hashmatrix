@@ -1,0 +1,11 @@
+租户 release 已渲染：tenant={{ include "tenant.id" . }}  namespace={{ include "tenant.namespace" . }}
+
+  · 计算隔离：namespace-per-tenant {{ if .Values.resourceQuota.enabled }}+ ResourceQuota{{ end }}{{ if .Values.limitRange.enabled }} + LimitRange{{ end }}
+  · 网络隔离：{{ if .Values.networkPolicy.enabled }}默认拒绝 + 放行 DNS/同租户/基座{{ else }}未启用{{ end }}
+  · 数据隔离：PG {{ .Values.data.postgres.strategy }} = {{ if eq .Values.data.postgres.strategy "database" }}{{ include "tenant.pgDatabase" . }}{{ else }}{{ include "tenant.pgSchema" . }}{{ end }} · Doris catalog = {{ include "tenant.dorisCatalog" . }}
+  · Secrets：{{ if .Values.externalSecrets.enabled }}ESO 注入（无明文入库）{{ else }}未启用{{ end }}
+  · 服务实例：{{ len .Values.services }} 个声明（image.repository 为空者跳过）
+
+由 control-plane 经 Helm SDK 命令式开通（不依赖 Git/Argo）。dry-run/diff：
+  bash deploy/scripts/tenant-diff.sh {{ include "tenant.id" . }}
+关联：HashMatrixData/hashmatrix#2

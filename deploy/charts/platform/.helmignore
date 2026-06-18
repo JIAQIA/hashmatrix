@@ -1,0 +1,8 @@
+# Patterns to ignore when building Helm packages.
+.DS_Store
+.git/
+.gitignore
+*.tmpl
+*.bak
+# 渲染产物与 vendored 依赖不入包
+*.rendered.yaml

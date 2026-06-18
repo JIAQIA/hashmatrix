@@ -1,0 +1,19 @@
+apiVersion: v2
+name: privacy
+description: |
+  隐私计算（占位子 chart）。由 umbrella chart `platform` 按 `privacy.enabled` 条件聚合。
+  实际部署模板由对应 submodule services/privacy 贡献后逐步充实（schema-first / 占位先行）。
+type: application
+
+# 占位版本：尚未发布。
+version: 0.0.0-placeholder
+appVersion: "0.0.0"
+
+keywords:
+  - hashmatrix
+  - privacy
+  - Python+Java
+
+home: https://github.com/HashMatrixData/hashmatrix-privacy
+sources:
+  - https://github.com/HashMatrixData/hashmatrix-privacy
