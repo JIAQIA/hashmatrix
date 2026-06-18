@@ -2,7 +2,13 @@
 
 ## libs-java-v0.2.0 — 2026-06-18
 
-- TODO: 本次变更摘要（不含客户/凭据信息）。
+补齐 spec §3 公共能力「日志 / 审计 / 鉴权」，公共依赖达到承诺线。
+
+- `hashmatrix-starter-audit`：审计基座——`AuditEvent` + `AuditRecorder`（默认 slf4j 结构化），事件自动加盖当前租户（取 `TenantContextHolder`），`@ConditionalOnMissingBean` 可覆盖。配置前缀 `hashmatrix.audit.*`。
+- `hashmatrix-starter-observability`：actuator 健康探针 + `/actuator/prometheus` 指标出口 + 公共指标标签（`MeterRegistryCustomizer`）；OTel 链路走部署期 Java agent。配置前缀 `hashmatrix.observability.*`。
+- `hashmatrix-starter-logging`：请求级 MDC 注入 `tenantId`/`requestId`（与审计/链路三方关联），沿用/生成 `X-Request-Id`。配置前缀 `hashmatrix.logging.*`。
+- `hashmatrix-starter-security`：应用侧鉴权——信任网关下发 `X-User`/`X-Roles`（应用无感），`GatewayPreAuthFilter` 建 SecurityContext + 无状态默认过滤链 + `@PreAuthorize` 方法级授权。配置前缀 `hashmatrix.security.*`。
+- 四个 starter 均纳入 `hashmatrix-bom` 统一版本管理；reactor 全量构建 + 单测通过。
 
 ## libs-java-v0.1.0 — 2026-06-18
 
