@@ -44,9 +44,18 @@ jobs:
           protos=(contracts/proto/**/*.proto)
           if [ ${#protos[@]} -eq 0 ]; then echo "无 proto 契约，跳过"; exit 0; fi
           buf lint contracts/proto
-          # 对基线分支检测破坏（PR 显式 major bump 时可在 buf.yaml 调整或忽略）
-          buf breaking contracts/proto --against ".git#branch=main,subdir=contracts/proto" || {
-            echo "::warning::proto 破坏性变更——确认是否已升 package 版本并走弃用流程"; exit 1; }
+          # 对基线分支检测破坏（PR 显式 major bump 时可在 buf.yaml 调整或忽略）。
+          # PR checkout 的本地 .git 无 main 引用（buf 克隆 .git 时 refs/remotes 不随之复制），
+          # 故显式将 main fetch 成本地分支供 buf 解析。
+          # 仅当基线 main 上已有 .proto 时才比对；首次引入 proto（基线无可比对象）优雅跳过，
+          # 否则 buf 会以 "had no .proto files" 报错。
+          if git fetch --no-tags origin +refs/heads/main:refs/heads/main 2>/dev/null \
+             && git ls-tree -r --name-only main -- contracts/proto | grep -q '\.proto$'; then
+            buf breaking contracts/proto --against ".git#branch=main,subdir=contracts/proto" || {
+              echo "::warning::proto 破坏性变更——确认是否已升 package 版本并走弃用流程"; exit 1; }
+          else
+            echo "::notice::基线 main 无 proto 契约（首次引入）或不可用，跳过 proto 破坏性检测"
+          fi
 
       # TODO（openapi 落地后启用）：REST 破坏性检测 oasdiff
       #   对每个改动的 contracts/openapi/*.yaml 与基线版本做 `oasdiff breaking`，破坏即 fail（除非 PR 显式 major bump）。
