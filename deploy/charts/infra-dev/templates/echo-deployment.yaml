@@ -1,0 +1,56 @@
+{{- if .Values.echoStub.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upstream-echo
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: upstream-echo
+  annotations:
+    # 决策 D-F：临时替尚未就绪的 governance 的回显 upstream（go-httpbin）。governance(I5) 就绪后移除。
+    hashmatrix.io/stand-in-for: governance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: upstream-echo
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "infra-dev.labels" . | nindent 8 }}
+        app.kubernetes.io/component: upstream-echo
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      # 非 root + 只读根 fs：go-httpbin 是静态二进制、无需写盘，可上满 restricted PSA 硬化。
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: go-httpbin
+          image: {{ include "infra-dev.echoStub.image" . | quote }}
+          imagePullPolicy: {{ .Values.echoStub.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.echoStub.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /status/200
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.echoStub.resources | nindent 12 }}
+{{- end }}

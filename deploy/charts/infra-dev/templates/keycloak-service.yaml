@@ -1,0 +1,20 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 `keycloak`（非 release 前缀）：与 gateway discovery + token issuer 的 well-known 主机名对齐。
+  # 单 ns 内仅一份 dev 身份源，故不加 release 前缀（well-known fixture，by design）。
+  name: keycloak
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.keycloak.service.port }}
+      targetPort: http
+{{- end }}

@@ -1,0 +1,17 @@
+{{- if .Values.keycloak.enabled }}
+---
+# Keycloak 预置 realm ConfigMap。事实源(SoT): services/gateway/keycloak/realm-export.json
+# （vendored 同步副本；同步/校验: bash deploy/scripts/sync-gateway-config.sh [--check]）。
+# 内容为脱敏 demo：realm hashmatrix + 公开客户端 apisix（emit organization/active_organization 声明）
+# + orgs acme/tenant-demo + demo 用户（alice/bob/carol/dave/superadmin，仅本地占位口令）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+data:
+  realm-export.json: |
+{{ .Files.Get "files/realm-export.json" | indent 4 }}
+{{- end }}

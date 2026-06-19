@@ -1,0 +1,24 @@
+# ── 本地/dev 端到端验证环境覆盖（分层第三层 · 仅本地 kind 单 ns）。 ──
+# 目标：governance 等真实后端镜像就绪前，先把 gateway 的 E2E 在单 ns 跑通——
+#   启用 in-cluster Keycloak（真实 OIDC 身份源）+ go-httpbin 回显桩（临时受保护上游）+ gateway。
+# 🔴 红线：本环境含 dev 占位凭据/脱敏 demo 用户，**严禁用于任何非本地环境**。
+global:
+  env: localdev
+
+baseNamespaces:
+  podSecurity: baseline   # 本地放宽到 baseline，便于联调
+
+# dev 基础设施子 chart：in-cluster Keycloak + 回显 upstream（见 charts/infra-dev/README）。
+infra-dev:
+  enabled: true
+
+# gateway（#17 已落地）：discovery 默认指向 in-cluster keycloak:8080（与 infra-dev 固定 Service 名对齐）。
+gateway:
+  enabled: true
+  # D-F · governance(I5) 未就绪期：受保护路由上游**临时**重指向 infra-dev 的 go-httpbin 回显桩，
+  # 使「网关注入 X-Tenant-* → 上游回显」闭环可被 cluster_e2e.py B 档断言。
+  # governance 镜像就绪后：infra-dev.echoStub.enabled=false + 此处改回 host=governance / port=8082。
+  upstreams:
+    governance:
+      host: upstream-echo
+      port: 8080

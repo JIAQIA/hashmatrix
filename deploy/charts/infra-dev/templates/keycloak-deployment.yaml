@@ -1,0 +1,82 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: keycloak
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "infra-dev.labels" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # realm 变更滚动重启（dev import 仅在启动时执行）。
+        checksum/realm: {{ include (print $.Template.BasePath "/keycloak-configmap.yaml") . | sha256sum }}
+    spec:
+      # 非 root + seccomp：令本 dev chart 在打了 baseline/restricted PSA label 的 ns 也可移植
+      # （Keycloak 官方镜像默认 uid 1000、支持任意 uid）。realm 导入需写 /opt/keycloak/data，故不设 readOnlyRootFilesystem。
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: {{ include "infra-dev.keycloak.image" . | quote }}
+          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # dev 模式 + 启动导入 realm（与 services/gateway/docker-compose.local.yml 一致）。
+          args: ["start-dev", "--import-realm"]
+          env:
+            # 仅本地 dev 引导凭据占位——严禁用于真实环境（红线）。
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: {{ .Values.keycloak.bootstrapAdmin.username | quote }}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              value: {{ .Values.keycloak.bootstrapAdmin.password | quote }}
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            # issuer 一致性：不强制 hostname，令 issuer 跟随访问主机——集群内经 Service `keycloak:8080`
+            # 访问即得 iss=http://keycloak:8080/realms/<realm>，与网关 discovery 默认值一致、验签通过。
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+          ports:
+            - name: http
+              containerPort: {{ .Values.keycloak.service.port }}
+          readinessProbe:
+            # realm 导入完成即 OIDC 就绪：探该 realm 的 OIDC discovery 端点（200 = 可签发/验签）。
+            # 首次启动导入 realm 较慢，故放宽 failureThreshold。
+            httpGet:
+              path: /realms/{{ .Values.keycloak.realm }}/.well-known/openid-configuration
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
+{{- end }}

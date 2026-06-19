@@ -1,0 +1,40 @@
+# infra-dev 子 chart values —— 本地/dev 端到端验证的 in-cluster 依赖（非生产）。
+# 🔴 红线：仅本地 dev 占位凭据 / 脱敏 demo 数据；严禁用于任何真实环境，严禁出现真实甲方参数。
+# 由 umbrella platform 按 infra-dev.enabled 聚合；默认仅 values-localdev 置 infra-dev.enabled=true。
+
+# umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
+global:
+  imageRegistry: ""
+
+# ── in-cluster Keycloak（OIDC 身份源；realm 预置自 services/gateway/keycloak/realm-export.json）──
+# 固定 Service 名 `keycloak`（非 release 前缀，见 templates/keycloak-service.yaml）：与 gateway
+# values.oidc.discovery 的 well-known 主机名对齐，且令「集群内取 token 的 issuer == 网关 discovery
+# 解析出的 issuer」（避免 issuer 不一致导致 B 档验签全 401，见 README「issuer 一致性」）。
+keycloak:
+  enabled: true
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "26.0"               # 与 services/gateway/docker-compose.local.yml 对齐（proven）
+    pullPolicy: IfNotPresent
+  # 仅本地 dev 引导凭据占位——严禁用于真实环境（红线）。
+  bootstrapAdmin:
+    username: admin
+    password: admin
+  realm: hashmatrix           # 须与 realm-export.json 的 realm 名一致（gateway discovery 路径同名）
+  service:
+    port: 8080               # 集群内应用端口（基线 8180 仅宿主/dev 暴露，勿写进集群侧 discovery）
+  resources: {}              # 占位：按 ns ResourceQuota 调
+
+# ── 回显 upstream（go-httpbin）——临时替尚未就绪的 governance（决策 D-F）──
+# governance 镜像未就绪期间，网关受保护路由上游暂指此回显端点（/headers 回显收到的请求头），
+# 使「网关注入 X-Tenant-* → 上游收到」闭环可被 gateway scripts/cluster_e2e.py B 档断言。
+# governance(I5) 就绪后：echoStub.enabled=false 且把 values 的 gateway.upstreams.governance 改回 governance:8082。
+echoStub:
+  enabled: true
+  image:
+    repository: mccutchen/go-httpbin
+    tag: "v2.15.0"           # 与 gateway compose 的 mock-upstream 同镜像（回显请求头）
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080               # go-httpbin 默认监听 8080
+  resources: {}

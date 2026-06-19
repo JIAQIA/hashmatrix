@@ -21,5 +21,10 @@ quay.io/prometheus/node-exporter:v1.8.2
 ghcr.io/cloudnative-pg/cloudnative-pg:1.24.1
 gcr.io/google-samples/hello-app:1.0
 
+# === M1 dev 底座（infra-dev 子 chart + gateway · 端到端验证依赖）===
+quay.io/keycloak/keycloak:26.0          # in-cluster OIDC 身份源（start-dev --import-realm）
+docker.io/mccutchen/go-httpbin:v2.15.0  # 回显 upstream（临时替 governance，回显 X-Tenant-* 注入）
+apache/apisix:3.11.0-debian             # gateway（APISIX standalone）
+
 # --- 自研服务（公开镜像；私有镜像建议改用 kind load）---
 # ghcr.io/hashmatrixdata/control-plane:dev

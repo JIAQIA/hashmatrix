@@ -1,0 +1,19 @@
+{{- if .Values.echoStub.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 `upstream-echo`：被 values 的 gateway.upstreams.governance.host 引用（临时上游目标）。
+  name: upstream-echo
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: upstream-echo
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: upstream-echo
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.echoStub.service.port }}
+      targetPort: http
+{{- end }}

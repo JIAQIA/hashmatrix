@@ -44,6 +44,12 @@ dependencies:
     version: "0.0.0-placeholder"
     repository: "file://../control-plane"
     condition: control-plane.enabled
+  # dev-only：本地/dev 端到端验证的 in-cluster 依赖（Keycloak + go-httpbin 回显桩）。
+  # 自托管最小 manifests（守离线渲染门，见 charts/infra-dev/README §D-E）；**默认仅 values-localdev 启用**。
+  - name: infra-dev
+    version: "0.1.0"
+    repository: "file://../infra-dev"
+    condition: infra-dev.enabled
 
 # ── 有状态依赖（社区 Operator/chart 优先，钉版本）──
 # 决策：保持「钉版本但默认禁用」。这里**注释声明**（沿用 charts/gateway/Chart.yaml 对 apisix 的同款做法），

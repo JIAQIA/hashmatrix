@@ -23,5 +23,8 @@ dependencies:
 - name: control-plane
   repository: file://../control-plane
   version: 0.0.0-placeholder
-digest: sha256:bef074e712af6927ca64af97e341f096642d7d658f22c798ccc860987162eecc
-generated: "2026-06-19T15:12:57.441644+08:00"
+- name: infra-dev
+  repository: file://../infra-dev
+  version: 0.1.0
+digest: sha256:9113297c1d855e1b8438d29824ac0a4a325705cf967f7f4cf3206d87d3bc79ba
+generated: "2026-06-19T16:40:44.738184+08:00"

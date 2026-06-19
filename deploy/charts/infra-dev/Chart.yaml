@@ -1,0 +1,23 @@
+apiVersion: v2
+name: infra-dev
+description: |
+  本地/dev 基础设施子 chart：把 M1 端到端验证所需的 dev 级 in-cluster 依赖装进单 ns。
+  当前提供：① in-cluster Keycloak（OIDC，realm 预置）作为网关 discovery/验签的真实身份源；
+  ② go-httpbin 回显 upstream（临时替尚未就绪的 governance，使网关受保护链可端到端验证）。
+  自托管最小 manifests（非社区 chart），守主仓离线渲染门（沿用 gateway #17「D-A」同款理由）。
+  由 umbrella platform 按 infra-dev.enabled 聚合，**默认仅 values-localdev 启用**——勿在 test/prod/xc 启用。
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - dev
+  - keycloak
+  - oidc
+  - e2e
+  - multi-tenant
+
+home: https://github.com/HashMatrixData/hashmatrix
+sources:
+  - https://github.com/HashMatrixData/hashmatrix

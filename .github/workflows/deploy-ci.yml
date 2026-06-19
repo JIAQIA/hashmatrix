@@ -41,10 +41,12 @@ jobs:
           kubeconform -v
 
       - name: 渲染门（dep build + lint + template + kubeconform）
-        # 校验 platform 基座（test/prod/xc）与 tenant 模板。
+        # 校验 platform 基座（test/prod/xc/localdev）与 tenant 模板。
         # demodb 额外覆盖 strategy=database 分支与 image.repository 为空的跳过逻辑。
+        # localdev 额外覆盖 infra-dev 子 chart（in-cluster Keycloak + 回显桩，自托管 manifests，离线可渲染）。
         run: |
           bash deploy/scripts/validate.sh test demo
           bash deploy/scripts/validate.sh prod demo
           bash deploy/scripts/validate.sh xc demo
           bash deploy/scripts/validate.sh test demodb
+          bash deploy/scripts/validate.sh localdev demo
