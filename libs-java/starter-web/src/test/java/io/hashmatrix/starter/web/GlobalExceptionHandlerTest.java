@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 直接对处理方法做单元测试（确定性、无 servlet 派发）。
@@ -51,6 +52,21 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().message())
                 .isEqualTo("Internal server error")
                 .doesNotContain("sensitive internal detail");
+    }
+
+    @Test
+    void errorResponseExceptionKeepsItsStatusInsteadOf500() {
+        // 实现 ErrorResponse 的框架异常（如 404 NoResourceFound / ResponseStatusException）→ 用其携带状态，
+        // 不被兜底吞成 500。以 ResponseStatusException 作代表（与 NoResourceFoundException 同走 ErrorResponse 分支）。
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleUnexpected(
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "no such resource /secret-path"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("404");
+        // 仅回状态短语，不泄露异常细节（路径等）。
+        assertThat(response.getBody().message()).isEqualTo("Not Found").doesNotContain("/secret-path");
     }
 
     @Test

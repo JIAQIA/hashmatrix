@@ -24,9 +24,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Forbidden</b>（默认 {@code AccessDeniedHandler}）。401/403 语义分明，是网关后各服务的统一基线。
  *
  * <p>子仓可提供自定义 {@code SecurityFilterChain} Bean 覆盖（{@code @ConditionalOnMissingBean}）。
+ *
+ * <p><b>装配顺序（务必 {@code before}，勿改 {@code after}）</b>：本链 {@code @ConditionalOnMissingBean}，
+ * 而 Boot 默认链 {@code SpringBootWebSecurityConfiguration} 为 {@code @ConditionalOnDefaultWebSecurity}
+ * （即 {@code @ConditionalOnMissingBean(SecurityFilterChain)}）——二者互斥，先注册者胜。故必须 <b>先于</b>
+ * Boot 的 {@link org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration} 处理，
+ * 本链 Bean 才会注册、Boot 默认链随之退避；若改为 {@code after}，则 Boot 默认链先注册（CSRF 开启、无网关
+ * 预认证、无 permitPaths/401 入口），本链静默失效，服务退化为 Boot 默认安全（{@code SecurityMatrixIntegrationTest} 守护）。
  */
 @AutoConfiguration(
-        after = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+        before = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnClass(SecurityFilterChain.class)
 @EnableMethodSecurity
@@ -56,5 +63,15 @@ public class SecurityFilterChainConfiguration {
                         ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(preAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * 安全异常渲染 advice：把方法级授权在 MVC 层抛出的 Spring Security 异常渲染为 403/401，
+     * 防止被应用兜底 {@code @ExceptionHandler(Exception.class)} 吞成 500。详见 {@link SecurityErrorAdvice}。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public SecurityErrorAdvice hashmatrixSecurityErrorAdvice() {
+        return new SecurityErrorAdvice();
     }
 }
