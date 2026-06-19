@@ -39,7 +39,8 @@ services:
   - name: governance
     image:
       repository: ghcr.io/hashmatrixdata/governance
-      tag: "0.1.0"
+      tag: "0.1.0-SNAPSHOT"     # dev 移动 tag（AD：每次 push main 覆盖；不可变 :<ver>-<sha> 用于 pin/prod）
+      pullPolicy: Always        # dev：跟移动 tag 必拉最新，规避节点缓存旧 tag 陈旧
     port: 8082          # 应用端口（对齐 M1 §3 基线 / gateway#4；管理 9082 独立 management.server.port）
     replicas: 1
     resources:
