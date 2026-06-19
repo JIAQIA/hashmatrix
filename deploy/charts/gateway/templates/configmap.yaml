@@ -1,0 +1,93 @@
+---
+# APISIX 配置 ConfigMap：static config.yaml（vendored SoT 副本）+ 集群版 apisix.yaml（values 注入）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gateway-config
+  labels:
+    {{- include "gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: apisix
+data:
+  # 静态配置（standalone / config_provider: yaml，无 etcd）。事实源：services/gateway/apisix/config.yaml
+  # （vendored 同步副本，env-agnostic；同步：bash deploy/scripts/sync-gateway-config.sh）。
+  config.yaml: |
+{{ .Files.Get "files/config.yaml" | indent 4 }}
+  # 声明式配置（集群版）：env-specific 字段（OIDC discovery / 上游）由 chart values 注入。
+  # 结构镜像 SoT services/gateway/apisix/apisix.yaml（其 mock-upstream 仅本地 compose 自洽）。
+  # 集群版只落两条路由：protected-api（受保护纵切·租户上下文第一关）+ public-open（无鉴权·可达性探活）；
+  # SoT 的本地演示/限流路由（如 ratelimit-demo）不入集群。**SoT 新增受保护路由时，需在此手工同步扩展。**
+  # standalone 模式要求末行 #END 结束标记，勿删。
+  apisix.yaml: |
+    upstreams:
+      - id: platform-upstream
+        name: platform-upstream
+        type: roundrobin
+        nodes:
+          "{{ .Values.upstreams.governance.host }}:{{ .Values.upstreams.governance.port }}": 1
+    # 共享插件链：OIDC 校验 + 租户上下文注入 + 审计（受保护路由统一引用，DRY）。
+    # 🔒 openid-connect 与 tenant-context 必须成对：前者验签注入 X-Userinfo，后者据此注入 X-Tenant-*。
+    plugin_configs:
+      - id: auth-tenant
+        desc: "OIDC 校验 -> 注入 X-Tenant-* -> 审计（受保护路由共享）"
+        plugins:
+          openid-connect:
+            client_id: {{ .Values.oidc.clientId | quote }}
+            # 公开客户端 + JWKS 本地验签，bearer_only 不使用该密钥；仅 schema 占位，非敏感信息。
+            client_secret: {{ .Values.oidc.clientSecret | quote }}
+            discovery: {{ .Values.oidc.discovery | quote }}
+            bearer_only: true
+            use_jwks: true
+            scope: openid
+            set_userinfo_header: true
+          tenant-context:
+            userinfo_header: X-Userinfo
+            tenant_claim: organization
+            active_tenant_claim: active_organization
+            fallback_claim: tenant
+            require_tenant: true
+          audit-log: {}
+    routes:
+      # 受保护路由：共享 auth-tenant 链 + 按租户限流。无 token -> 401；合法 token -> 上游可见 X-Tenant-*。
+      - id: protected-api
+        name: protected-api
+        desc: "受保护 API——租户上下文进入系统的第一道关"
+        uri: /api/*
+        upstream_id: platform-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          proxy-rewrite:
+            regex_uri: ["^/api/(.*)", "/$1"]
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id            # 注入后的可信租户变量（非 http_x_tenant_id）
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # 公共路由：无鉴权，用于网关可达性探活（9080 经 Service 可达验证）。
+      - id: public-open
+        name: public-open
+        desc: "公共开放端点（无鉴权）"
+        uri: /public/*
+        upstream_id: platform-upstream
+        plugins:
+          proxy-rewrite:
+            regex_uri: ["^/public/(.*)", "/$1"]
+          audit-log: {}
+    #END
+---
+# 自定义 Lua 插件 ConfigMap（tenant-context / audit-log）。事实源：services/gateway/plugins/*.lua
+# （vendored 同步副本；同步：bash deploy/scripts/sync-gateway-config.sh）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gateway-plugins
+  labels:
+    {{- include "gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: apisix
+data:
+{{- range $path, $_ := .Files.Glob "files/plugins/*.lua" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}

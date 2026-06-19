@@ -1,3 +1,20 @@
-gateway 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署的模板。
-落地计划见本 chart 的 README.md「待落地清单」，关联 HashMatrixData/hashmatrix#2。
-配置/插件事实源在 submodule services/gateway（standalone 声明式，无 etcd）。
+gateway 子 chart（APISIX standalone 声明式，无 etcd · 单 ns）已渲染：
+  - Deployment {{ .Release.Name }}-gateway（image {{ include "gateway.image" . }}）
+  - Service    {{ .Release.Name }}-gateway:{{ .Values.service.port }}（App 端口 9080）
+  - ConfigMap  {{ .Release.Name }}-gateway-config（config.yaml + apisix.yaml）
+               {{ .Release.Name }}-gateway-plugins（tenant-context / audit-log）
+
+访问（单 ns 内）：
+  kubectl -n <ns> port-forward svc/{{ .Release.Name }}-gateway {{ .Values.service.port }}:{{ .Values.service.port }}
+  # 公共端点（无鉴权，探活网关可达）：
+  curl -i http://127.0.0.1:{{ .Values.service.port }}/public/get
+  # 受保护端点（需 Keycloak OIDC token）：无 token -> 401；合法 token -> 注入 X-Tenant-* 到上游 governance
+  curl -i http://127.0.0.1:{{ .Values.service.port }}/api/...
+
+部署级注入（values）：
+  OIDC discovery : {{ .Values.oidc.discovery }}
+  上游 governance : {{ .Values.upstreams.governance.host }}:{{ .Values.upstreams.governance.port }}
+  品牌 profile   : {{ .Values.tenancy.brandingProfile | default "（未设）" }}
+
+配置/插件事实源：submodule services/gateway（同步进 chart：bash deploy/scripts/sync-gateway-config.sh）。
+官方 APISIX chart 依赖为升级路径，见本 chart Chart.yaml 注释。

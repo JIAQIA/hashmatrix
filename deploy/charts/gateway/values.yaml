@@ -1,29 +1,46 @@
-# gateway 子 chart values（占位）。
-# 落地时此处对接 APISIX 官方 chart，并把 submodule services/gateway 的声明式配置/插件
-# 渲染为 ConfigMap 注入 APISIX（standalone / config_provider: yaml，无 etcd）。
+# gateway 子 chart values —— M1 自托管 APISIX（standalone 声明式，无 etcd）。
+# 官方 APISIX chart 依赖见 Chart.yaml 注释的「升级路径」；主仓离线渲染门要求本 chart self-contained。
+# 🔴 红线：示例仅用通用占位（acme / tenant-demo / example.com），无任何真实甲方环境参数。
 
-# ── APISIX 官方 chart 透传（占位，待 dependencies 启用后生效）──
-apisix:
-  enabled: false
-  # etcd:
-  #   enabled: false        # 本平台采用 standalone 声明式配置，不使用 etcd
-  # apisix:
-  #   configurationSnippet: {}
+# umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
+global:
+  imageRegistry: ""
 
-# ── 网关自定义配置注入钩子（占位）──
-# config-as-code 源：services/gateway/apisix/{config.yaml,apisix.yaml}
-gatewayConfig:
-  # 将 apisix.yaml（routes/upstreams/插件）渲染为 ConfigMap 挂载到 APISIX
-  declarativeConfigFrom: ""     # e.g. configMap 名或外部引用（待定）
-  # 自定义 Lua 插件（tenant-context / audit-log）的挂载方式（initContainer / image layer，待定）
-  customPlugins: []
+image:
+  repository: apache/apisix
+  tag: "3.11.0-debian"      # 与 services/gateway/docker-compose.local.yml 对齐（proven standalone 镜像）
+  pullPolicy: IfNotPresent
 
-# ── OIDC / Keycloak 对接（占位，部署级注入）──
+replicas: 1
+resources: {}               # 占位：按 ns ResourceQuota 调
+
+service:
+  type: ClusterIP
+  port: 9080                # App 端口基线（9080）
+
+controlPort: 9092           # APISIX control API（容器内，不经 Service 暴露）
+
+# ── 部署级 OIDC（in-cluster Keycloak）──
+# 集群内经 Service:8080 访问 Keycloak（宿主/dev 暴露的 8180 勿写进集群侧 discovery）。
 oidc:
-  discovery: ""                 # e.g. https://<keycloak-host>/realms/hashmatrix/.well-known/openid-configuration
-  clientId: "apisix"
+  discovery: "http://keycloak:8080/realms/hashmatrix/.well-known/openid-configuration"
+  clientId: apisix
+  # 公开客户端 + JWKS 本地验签（bearer_only）不使用该密钥；仅 openid-connect schema 占位，非敏感信息。
+  clientSecret: "local-dev-unused-bearer-jwks"
 
-# ── 多租户 / 部署级品牌（占位）──
+# ── 上游目标（真实 in-cluster）。集群内 Service→Pod 用应用容器端口（governance 8082）──
+# 单 ns 内用裸 Service 名解析；跨 ns 部署改为 FQDN（governance.<ns>.svc）。
+upstreams:
+  governance:
+    host: governance
+    port: 8082
+
+# ── 受保护路由按租户限流（注入后的可信 $tenant_id 维度，非客户端原始头）──
+rateLimit:
+  count: 100
+  timeWindow: 60
+
+# ── 部署级品牌（部署期注入，不按租户运行期换肤；默认 emerald）──
+# M1 gateway 不在运行期消费，仅随部署注入并标注在工作负载标签（可审计/追溯）。
 tenancy:
-  # 品牌为部署级（部署期注入），不按租户运行期换肤
-  brandingProfile: ""
+  brandingProfile: emerald

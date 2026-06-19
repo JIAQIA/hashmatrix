@@ -1,7 +1,7 @@
 dependencies:
 - name: gateway
   repository: file://../gateway
-  version: 0.0.0-placeholder
+  version: 0.1.0
 - name: governance
   repository: file://../governance
   version: 0.0.0-placeholder
@@ -23,5 +23,5 @@ dependencies:
 - name: control-plane
   repository: file://../control-plane
   version: 0.0.0-placeholder
-digest: sha256:9c4afa57215c581448651b46c278515cd8b0c68d274056459dca398889651997
-generated: "2026-06-18T13:55:45.224726+08:00"
+digest: sha256:bef074e712af6927ca64af97e341f096642d7d658f22c798ccc860987162eecc
+generated: "2026-06-19T15:12:57.441644+08:00"

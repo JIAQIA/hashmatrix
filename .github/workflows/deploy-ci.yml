@@ -21,6 +21,13 @@ jobs:
       - name: 红线守卫（无明文 Secret 入库）
         run: bash deploy/scripts/secrets-guard.sh
 
+      - name: 网关 vendored 副本同步校验（SoT 不漂移）
+        # gateway chart 的 files/（config.yaml + lua 插件）是 submodule services/gateway 的同步副本；
+        # 仅 init 该公开子模块（避免 recursive 触及私有子模块），校验副本未漂移。
+        run: |
+          git submodule update --init services/gateway
+          bash deploy/scripts/sync-gateway-config.sh --check
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:

@@ -13,7 +13,7 @@ appVersion: "0.1.0"
 # 占位阶段默认全部 enabled=false（子 chart 尚无可部署模板）；真实模板由各 submodule 贡献后开启。
 dependencies:
   - name: gateway
-    version: "0.0.0-placeholder"
+    version: "0.1.0"               # 已落地（#17）：APISIX standalone 自托管子 chart
     repository: "file://../gateway"
     condition: gateway.enabled
   - name: governance

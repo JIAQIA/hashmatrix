@@ -1,4 +1,4 @@
-# ── 研发/测试环境覆盖（分层第三层）。占位阶段子 chart 仍全关，仅打环境标签。 ──
+# ── 研发/测试环境覆盖（分层第三层）。 ──
 global:
   env: test
   # imageRegistry: registry.example.com/hashmatrix-test
@@ -6,9 +6,13 @@ global:
 baseNamespaces:
   podSecurity: baseline   # 测试环境放宽到 baseline，便于联调
 
-# 子 chart 落地后在此按需开启，例如：
-# gateway:
-#   enabled: true
+# gateway 子 chart 已落地（#17）：启用 APISIX standalone（单 ns 渲染门覆盖）。
+# discovery/上游/品牌取 charts/gateway/values.yaml 默认（in-cluster keycloak:8080 / governance:8082 / emerald）；
+# 如需覆盖在此 gateway.* 下显式给出。
+gateway:
+  enabled: true
+
+# 其余子 chart 落地后在此按需开启，例如：
 # platform-common:
 #   enabled: true
 
