@@ -47,3 +47,4 @@
 | AD-15 | 采集边界 | **元数据采集（governance，取结构·旁路）≠ 数据采集（data-foundation，搬数据·主链路）**，共用 Connector SPI + 数据源统一管理 | 连接器只实现一次、数据源引用态共享，产出/SLA/归属不同 | 已定 |
 | AD-16 | 元模型引擎 | governance **自研元模型引擎**（Atlas TypeDef 蓝本，Spring Boot+PG+ES）；OM/Atlas/DataHub 仅作采集来源 | 产品要运行期 UI 自定义元模型(继承/基数/作用域)，OM/DataHub 类型代码态不契合；自研利于多租户作用域/信创/甲方自维护 | 已定 |
 | AD-17 | 契约治理 | 契约集中主仓 `contracts/`（OpenAPI/AsyncAPI/proto/ICD）；**加法兼容默认+破坏走双跑弃用+自动破坏检测**；契约测试**两阶段 schema-first→CDC(Pact)** | 多服务多语言独立迭代不连坐；先低成本静态门落地，高风险对再上 CDC | 已定 |
+| AD-18 | 计算调度后端 | **可插拔双模**：默认 **On K8s**（`namespace-per-tenant`），存量 Hadoop 私有化可部署期切 **On YARN**（`queue-per-tenant`）；抽象 `JobSubmitter` 提交层 + `computeBackend: k8s\|yarn` Helm 切换；**引擎自带、YARN 仅借作资源管理器、存储统一对象存储**；提交/编排复用 DolphinScheduler(批)/StreamPark·Kyuubi 等开源，不手搓 YARN RPC | 复用存量算力降落地成本；仅 Spark/Flink 临时计算落 YARN、其余栈不动；queue 级隔离弱于 namespace 须明示不等价；对甲方收敛为受支持矩阵（Hadoop 3.x/专用 queue/单服务主体 keytab/对象存储可达） | 规划（M1 预留抽象 · 后置实装） |
