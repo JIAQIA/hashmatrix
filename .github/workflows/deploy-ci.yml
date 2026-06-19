@@ -5,9 +5,10 @@ name: deploy CI
 on:
   push:
     branches: [main]
-    paths: ['deploy/**', '.github/workflows/deploy-ci.yml']
+    # services/gateway：其 SoT 被 gateway chart vendored，子模块指针移动可能引入副本漂移 → 需重跑漂移守卫。
+    paths: ['deploy/**', '.github/workflows/deploy-ci.yml', 'services/gateway']
   pull_request:
-    paths: ['deploy/**', '.github/workflows/deploy-ci.yml']
+    paths: ['deploy/**', '.github/workflows/deploy-ci.yml', 'services/gateway']
 
 permissions:
   contents: read
