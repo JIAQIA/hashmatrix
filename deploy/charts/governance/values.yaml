@@ -1,14 +1,39 @@
-# governance 子 chart values（占位）。
-# 落地时由 services/governance 贡献真实模板，并接入 umbrella 的分环境 values（prod/test/xc）。
+# governance 子 chart values —— M1 真实部署（数据治理分系统）。
+# 🔴 红线：仅 dev 占位凭据 / 脱敏 demo（acme / tenant-demo / example.com）；严禁任何真实甲方参数。
+# D5：子仓交付 image，主仓 owns chart；镜像部署级注入、tag 固定（勿 latest）。
+# umbrella 经 `governance.enabled` 渲染（默认关，仅 values-localdev 开）。
 
-# umbrella 通过 `governance.enabled` 条件决定是否渲染本子 chart（默认关闭，占位阶段不产出清单）。
+# umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
+global:
+  imageRegistry: ""
+
+# umbrella 条件开关（对应 platform/Chart.yaml dependencies 的 condition: governance.enabled）。
 enabled: false
 
-# 镜像（占位，部署级注入）。
 image:
-  repository: ""        # e.g. ghcr.io/hashmatrixdata/governance
-  tag: ""               # 部署期固定具体 tag，避免 latest
+  repository: ghcr.io/hashmatrixdata/governance
+  tag: "0.1.0-SNAPSHOT"       # dev 移动 tag；本地经 kind load 入节点（配 IfNotPresent）
   pullPolicy: IfNotPresent
 
-# 副本与资源（占位，落地时按 SLO 调整）。
-replicaCount: 1
+replicas: 1
+resources: {}                 # 占位：按 ns ResourceQuota 调
+
+service:
+  type: ClusterIP
+  port: 8082                  # 应用 HTTP（端口基线）；gateway upstream host=governance:8082 依赖此名/口
+managementPort: 9082          # actuator（探针/指标），独立于应用端口（端口基线 §3）
+
+# ── 数据源：指向 infra-dev 的 in-cluster PG（各服务独立 db）──
+# 🔴 dev 占位凭据；生产经 ESO/secretRef 注入 PG_PASSWORD（应用侧无默认 → 缺失 fail-fast）。
+# 注意 user=hashmatrix：infra-dev PG 的单超级用户（≠ 应用默认 PG_USER=governance）。
+datasource:
+  host: postgres
+  port: 5432
+  db: governance
+  user: hashmatrix
+  password: hashmatrix
+
+# Elasticsearch：M1 暂无 in-cluster ES。留空 = 不注入 ES_URIS，应用用默认 localhost:9200（dev 下不连）；
+# readiness 不看 deps（仅 readinessState），ES 缺失仅在 /actuator/health 报组件 DOWN，不拖垮探针。
+elasticsearch:
+  uris: ""

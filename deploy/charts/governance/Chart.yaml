@@ -1,13 +1,14 @@
 apiVersion: v2
 name: governance
 description: |
-  数据治理分系统（占位子 chart）。由 umbrella chart `platform` 按 `governance.enabled` 条件聚合。
-  实际部署模板由对应 submodule services/governance 贡献后逐步充实（schema-first / 占位先行）。
+  数据治理分系统子 chart（M1 真实部署）。由 umbrella chart `platform` 按 `governance.enabled` 聚合。
+  D5：子仓 services/governance 交付 image，主仓 owns chart。M1 提供 Deployment + Service（应用 8082 /
+  管理 9082），datasource 指向 infra-dev 的 in-cluster PG；`/api/meta/search` 返回脱敏 mock（#4），
+  引擎核心/实例/采集属 post-M1。
 type: application
 
-# 占位版本：尚未发布。
-version: 0.0.0-placeholder
-appVersion: "0.0.0"
+version: 0.1.0
+appVersion: "0.1.0-SNAPSHOT"
 
 keywords:
   - hashmatrix

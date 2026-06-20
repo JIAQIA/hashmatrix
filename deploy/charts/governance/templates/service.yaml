@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 `governance`（非 release 前缀）：gateway upstream host=governance:8082 依赖此名
+  # （A3 翻桩目标），单 ns 内 well-known fixture（同 infra-dev keycloak/postgres）。
+  name: governance
+  labels:
+    {{- include "governance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: governance
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/component: governance
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+    - name: management
+      port: {{ .Values.managementPort }}
+      targetPort: management

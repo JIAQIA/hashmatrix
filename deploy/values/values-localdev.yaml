@@ -23,3 +23,10 @@ gateway:
     governance:
       host: upstream-echo
       port: 8080
+
+# governance（#15 · I5/A2）：真实子 chart 进集群，datasource 指 infra-dev 的 in-cluster PG。
+# 镜像与 datasource(host=postgres/user=hashmatrix/db=governance) 由子 chart values 默认提供；此处仅开开关。
+# 注：此期 gateway 上游仍指 echo 桩（见上 D-F）；翻到真实 governance 是 A3
+#     （infra-dev.echoStub.enabled=false + 上面 upstreams.governance 改回 host=governance/port=8082）。
+governance:
+  enabled: true

@@ -17,7 +17,7 @@ dependencies:
     repository: "file://../gateway"
     condition: gateway.enabled
   - name: governance
-    version: "0.0.0-placeholder"
+    version: "0.1.0"
     repository: "file://../governance"
     condition: governance.enabled
   - name: security

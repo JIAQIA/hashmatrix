@@ -1,2 +1,11 @@
-governance 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/governance 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+governance（数据治理）已渲染：Deployment + Service `governance`（应用 8082 / 管理 9082）。
+datasource → in-cluster PG `{{ .Values.datasource.host }}:{{ .Values.datasource.port }}/{{ .Values.datasource.db }}`。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/governance
+  kubectl -n {{ .Release.Namespace }} exec deploy/governance -- \
+    sh -c 'wget -qO- http://127.0.0.1:{{ .Values.managementPort }}/actuator/health/readiness'
+
+注：此期网关上游可能仍指 infra-dev 回显桩（决策 D-F）。翻到真实 governance（A3）=
+  infra-dev.echoStub.enabled=false + gateway.upstreams.governance 改回 host=governance/port=8082。
+关联 HashMatrixData/hashmatrix#15（I5/I2）。
