@@ -96,3 +96,12 @@ contracts:
       - hashmatrix-security
       - hashmatrix-data-foundation
       - hashmatrix-platform-common
+
+  - id: openapi/governance-metamodel
+    type: openapi
+    path: openapi/governance-metamodel.yaml
+    status: draft          # 元模型管理写侧（webui 元模型设计器 ↔ governance），待 webui 评审对齐
+    version: 0.1.0
+    producers: [hashmatrix-governance]
+    consumers:
+      - hashmatrix-webui
