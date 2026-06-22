@@ -34,6 +34,11 @@ upstreams:
   governance:
     host: governance
     port: 8082
+  # privacy 编排层（隐私计算）。privacy chart 用固定 Service 名 privacy-orchestrator-java
+  # （对齐 governance 约定），standalone 与 platform umbrella 聚合下均稳定可解析。
+  privacy:
+    host: privacy-orchestrator-java
+    port: 8086
 
 # ── 受保护路由按租户限流（注入后的可信 $tenant_id 维度，非客户端原始头）──
 rateLimit:

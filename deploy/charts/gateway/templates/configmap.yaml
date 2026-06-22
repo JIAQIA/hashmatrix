@@ -14,7 +14,8 @@ data:
 {{ .Files.Get "files/config.yaml" | indent 4 }}
   # 声明式配置（集群版）：env-specific 字段（OIDC discovery / 上游）由 chart values 注入。
   # 结构镜像 SoT services/gateway/apisix/apisix.yaml（其 mock-upstream 仅本地 compose 自洽）。
-  # 集群版只落两条路由：protected-api（受保护纵切·租户上下文第一关）+ public-open（无鉴权·可达性探活）；
+  # 集群版落三条路由：protected-api（/api/* 受保护纵切·租户上下文第一关）+ privacy-api（/api/privacy/* 隐私计算）
+  # + public-open（无鉴权·可达性探活）；
   # SoT 的本地演示/限流路由（如 ratelimit-demo）不入集群。**SoT 新增受保护路由时，需在此手工同步扩展。**
   # standalone 模式要求末行 #END 结束标记，勿删。
   apisix.yaml: |
@@ -24,6 +25,11 @@ data:
         type: roundrobin
         nodes:
           "{{ .Values.upstreams.governance.host }}:{{ .Values.upstreams.governance.port }}": 1
+      - id: privacy-upstream
+        name: privacy-upstream
+        type: roundrobin
+        nodes:
+          "{{ .Values.upstreams.privacy.host }}:{{ .Values.upstreams.privacy.port }}": 1
     # 共享插件链：OIDC 校验 + 租户上下文注入 + 审计（受保护路由统一引用，DRY）。
     # 🔒 openid-connect 与 tenant-context 必须成对：前者验签注入 X-Userinfo，后者据此注入 X-Tenant-*。
     plugin_configs:
@@ -62,6 +68,29 @@ data:
             time_window: {{ .Values.rateLimit.timeWindow }}
             key_type: var
             key: tenant_id            # 注入后的可信租户变量（非 http_x_tenant_id）
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # privacy 受保护路由：复用 auth-tenant 链注入 X-Tenant-*，路由到隐私计算编排层。
+      # priority 高于 protected-api（/api/*）以确保 /api/privacy/* 不被通配兜底抢走；
+      # rewrite 保留 /api 前缀（编排层端点为 /api/v1/psi/*）。
+      # 依赖：编排层对外端点 /api/v1/psi/intersect（客户端经 /api/privacy/v1/psi/intersect 访问）；
+      # 契约见主仓 contracts/openapi/privacy-orchestrator-v1.yaml，改路径时需同步本 rewrite。
+      - id: privacy-api
+        name: privacy-api
+        desc: "隐私计算编排层（PSI/匿踪）受保护路由"
+        uri: /api/privacy/*
+        priority: 10
+        upstream_id: privacy-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          proxy-rewrite:
+            regex_uri: ["^/api/privacy/(.*)", "/api/$1"]
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
             rejected_code: 429
             policy: local
             allow_degradation: true

@@ -4,11 +4,11 @@
 # Python 计算引擎（SecretFlow / PSI）
 enginePy:
   image:
-    repository: hashmatrix-privacy/engine-py
-    tag: ""            # 默认取 Chart.appVersion
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/hashmatrixdata/privacy-engine
+    tag: "0.1.0-SNAPSHOT"   # dev 移动 tag（push main 覆盖）；pin/prod 用不可变 0.1.0-<sha>
+    pullPolicy: Always       # dev：跟移动 tag 必拉最新，规避节点缓存陈旧
   replicas: 1
-  containerPort: 8000
+  containerPort: 8087        # 对齐基线（env ENGINE_PORT 覆盖）
   env:
     PSI_BACKEND: mock  # 真实部署切 secretflow
   resources: {}        # 占位：按租户 ResourceQuota 调
@@ -16,11 +16,12 @@ enginePy:
 # Java 编排层（Spring Boot）
 orchestratorJava:
   image:
-    repository: hashmatrix-privacy/orchestrator-java
-    tag: ""
-    pullPolicy: IfNotPresent
+    repository: ghcr.io/hashmatrixdata/privacy-orchestrator-java
+    tag: "0.1.0-SNAPSHOT"
+    pullPolicy: Always
   replicas: 1
-  containerPort: 8080
+  containerPort: 8086        # 应用端口（对齐基线 / gateway upstream）
+  managementPort: 9086       # 管理(actuator)独立端口；readiness 探针走此口
   resources: {}
 
 # 多租户：实际部署由 control-plane 注入 per-tenant namespace/quota/netpol。

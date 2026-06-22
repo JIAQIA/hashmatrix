@@ -12,10 +12,10 @@ info:
 
     脱敏约定：示例数据一律虚构占位（`acme` / `tenant-demo` / `example.com`）。
 servers:
-  - url: http://engine-py:8000
-    description: docker-compose.local 内部地址
-  - url: http://localhost:8000
-    description: 本地直跑
+  - url: http://engine-py:8087
+    description: docker-compose.local 内部地址（engine 端口基线 8087）
+  - url: http://localhost:8087
+    description: 本地直跑（ENGINE_PORT 默认 8087）
 
 paths:
   /healthz:

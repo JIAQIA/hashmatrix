@@ -24,6 +24,7 @@
 | [`icd/control-plane-provisioning`](./icd/control-plane-provisioning-icd.md) | ICD | control-plane | draft |
 | [`openapi/control-plane-v1`](./openapi/control-plane-v1.yaml) | OpenAPI | control-plane | draft |
 | [`openapi/governance-metadata-v1`](./openapi/governance-metadata-v1.yaml) | OpenAPI | governance | draft |
+| [`openapi/privacy-orchestrator-v1`](./openapi/privacy-orchestrator-v1.yaml) | OpenAPI | privacy | draft |
 | [`openapi/privacy-psi-v1`](./openapi/privacy-psi-v1.yaml) | OpenAPI | privacy | draft |
 | [`asyncapi/governance-metadata`](./asyncapi/governance-metadata.yaml) | AsyncAPI | governance | draft |
 | [`proto/privacy-psi`](./proto/privacy/v1/psi.proto) | proto | privacy | draft |

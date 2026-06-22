@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: Privacy Orchestrator API
+  version: 1.0.0
+  description: >
+    隐私计算编排层（orchestrator-java）对外暴露的 PSI（安全求交）编排接口。
+    这是 **客户端 / 网关 → Java 编排层（orchestrator-java）** 的权威契约；
+    编排层再据此调用引擎契约 `privacy-psi-v1`（engine-py）完成计算。先改本契约、再改实现。
+
+    多租户：**发起方租户取自 `X-Tenant-Id` 头**（经网关从 Keycloak JWT 注入，见
+    `tenant-context-headers-icd`），**不在请求体内**，避免客户端伪造租户身份。
+    跨租户联合计算（参与方分属不同租户）须显式 `crossTenantAuthorized: true`，否则拒绝（默认不串）。
+
+    网关路由：对外经 APISIX `/api/privacy/*` 暴露，rewrite `^/api/privacy/(.*) → /api/$1`；
+    即客户端调用 `/api/privacy/v1/psi/intersect` 命中编排层 `/api/v1/psi/intersect`。
+
+    脱敏约定：示例数据一律虚构占位（`acme` / `tenant-demo` / `example.com`）。
+servers:
+  - url: http://localhost:9080/api/privacy
+    description: 经网关（APISIX）对外地址
+  - url: http://localhost:8086
+    description: 本地直跑（SERVER_PORT 默认 8086，直连编排层，绕过网关）
+
+paths:
+  /api/v1/psi/intersect:
+    post:
+      summary: 发起一次 PSI（安全求交）编排
+      operationId: intersect
+      parameters:
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          description: >
+            发起方稳定租户标识（数据/计算隔离路由键）。网关后置时由网关注入；
+            缺失而访问租户隔离资源 → 400（编程/配置错误，不静默放行）。
+          schema:
+            type: string
+            example: tenant-demo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PsiIntersectRequest"
+      responses:
+        "200":
+          description: 求交完成
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PsiResult"
+        "400":
+          description: 缺少 X-Tenant-Id 租户上下文，或请求不合法（如参与方数量不为 2）——均归 `INVALID_REQUEST`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: 跨租户联合计算未显式授权（默认不串）——`CROSS_TENANT_NOT_AUTHORIZED`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: 计算引擎不可达或返回错误——`ENGINE_ERROR`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+components:
+  schemas:
+    Party:
+      type: object
+      required: [partyId, tenant, elements]
+      properties:
+        partyId:
+          type: string
+          description: 参与方（节点）标识
+          example: party-a
+        tenant:
+          type: string
+          description: 参与方所属租户
+          example: tenant-demo
+        elements:
+          type: array
+          description: 该方持有的求交元素（mock 明文；真实 PSI 不出域）
+          items:
+            type: string
+          example: ["alice@example.com", "bob@example.com"]
+    PsiIntersectRequest:
+      type: object
+      required: [jobId, parties]
+      description: >
+        发起方租户**不在体内**（取自 X-Tenant-Id 头），与引擎契约 `privacy-psi-v1`
+        的 `PsiRunRequest`（体内带 initiatorTenant）刻意区分。
+      properties:
+        jobId:
+          type: string
+          example: job-0001
+        parties:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/Party"
+        crossTenantAuthorized:
+          type: boolean
+          default: false
+          description: 跨租户联合计算的显式授权开关；默认 false（不串）
+    PsiResult:
+      type: object
+      required: [jobId, status, intersectionSize]
+      properties:
+        jobId:
+          type: string
+          example: job-0001
+        status:
+          type: string
+          enum: [SUCCEEDED, REJECTED, FAILED]
+        intersectionSize:
+          type: integer
+          example: 1
+        intersection:
+          type: array
+          description: 交集元素（mock 后端返回；真实 PSI 后端可置空仅返回基数）
+          items:
+            type: string
+          example: ["bob@example.com"]
+        message:
+          type: string
+          example: ok
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [CROSS_TENANT_NOT_AUTHORIZED, INVALID_REQUEST, ENGINE_ERROR]
+        message:
+          type: string
+          example: cross-tenant PSI requires explicit authorization

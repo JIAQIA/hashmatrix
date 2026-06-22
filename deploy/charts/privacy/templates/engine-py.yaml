@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-engine-py
+  # 固定 Service/工作负载名（对齐 governance 约定）；编排层经此名访问引擎，umbrella 下亦稳定。
+  name: privacy-engine-py
   labels:
     {{- include "privacy.labels" . | nindent 4 }}
     app.kubernetes.io/component: engine-py
@@ -24,6 +25,9 @@ spec:
           ports:
             - containerPort: {{ .Values.enginePy.containerPort }}
           env:
+            # 绑定端口显式注入（与 containerPort 一致，避免镜像内默认漂移）
+            - name: ENGINE_PORT
+              value: {{ .Values.enginePy.containerPort | quote }}
             {{- range $k, $v := .Values.enginePy.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}
@@ -38,7 +42,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-engine-py
+  # 固定 Service/工作负载名（对齐 governance 约定）；编排层经此名访问引擎，umbrella 下亦稳定。
+  name: privacy-engine-py
   labels:
     {{- include "privacy.labels" . | nindent 4 }}
     app.kubernetes.io/component: engine-py
