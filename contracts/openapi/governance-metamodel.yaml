@@ -1,0 +1,1047 @@
+openapi: 3.1.0
+info:
+  title: governance metamodel admin API
+  version: 0.1.0
+  description: |
+    元模型管理（写侧 / admin）API —— 运行期由用户在 webui 中**自定义元模型**：
+    元类（entityDef + superType 继承 + 属性）、关系定义（类型 + 基数 + 端点）、
+    分类树、草稿→发布→下线生命周期与版本、一致性校验门控、模板库导入。
+
+    与供数契约 `openapi/governance-metadata-v1`（读侧 / 数据目录消费）**互补分离**：
+    本契约是 webui「元模型设计器」与 governance 后端之间的接口事实源（AD-16 自研元模型引擎，Atlas TypeDef 蓝本）。
+
+    多租户：租户上下文由网关注入 `X-Tenant-*`、经 `starter-tenant` 解析（见 `icd/tenant-context-headers`），
+    **不在本契约的路径/查询里显式传 tenant**。作用域 `scope` 区分平台公共（共享只读）与租户私有：
+    读路径返回 `PLATFORM_PUBLIC ∪ TENANT_PRIVATE`；写仅落 `TENANT_PRIVATE`，写 `PLATFORM_PUBLIC` 需平台管理员
+    —— 前端先查 `GET /api/metamodel/capabilities` 决定平台公共写入口是否可用，无权写返回 403。
+
+    编码唯一性：`code` 在**租户可见命名空间（平台公共 ∪ 本租户私有）内全局唯一** —— 租户私有
+    **不得**与平台公共同 `code`（不做同名覆盖；对齐 Atlas 全局类型名）。租户对公共类型的扩展走
+    **superType 继承**，而非同名 shadow。故 `{code}` 路径无需 scope 限定即可无歧义寻址；
+    租户私有创建与公共 `code` 冲突 → 409。
+
+    跨作用域引用：租户私有 `relationshipDef` 的 endpoint **可**指向平台公共 `entityDef`（租户在公共类型上建关系）；
+    平台公共 `relationshipDef`/`entityDef` **不得**依赖任何租户私有定义（公共不可下沉到租户）。完整性由 #9 校验。
+
+    鉴权：认证/鉴权由网关统一执行，本契约各端点声明 `401`（未认证）/ 写端点声明 `403`（无权限）。
+
+    路由约定：网关须按**路径段**精确路由 —— `/api/metamodel/**`（本契约，元模型管理）与
+    `/api/meta/**`（供数契约 `governance-metadata-v1`）是两条独立前缀，**不可用裸字符串前缀
+    `/api/meta` 匹配**（会误吞 `/api/metamodel`）；按 `/api/meta/` 与 `/api/metamodel/` 区分。
+
+    契约规范见 contracts/CONVENTIONS.md。状态 draft —— 接口可大改，消费方（webui）评审对齐前不冻结。
+  contact:
+    name: hashmatrix-governance
+    url: https://example.com/hashmatrix/governance
+  x-contract:
+    id: openapi/governance-metamodel
+    owner: hashmatrix-governance
+    status: draft
+    since: 2026-06-22
+    producers: [hashmatrix-governance]
+    consumers: [hashmatrix-webui]
+servers:
+  - url: https://api.example.com
+    description: 脱敏占位；实际经网关路由到 governance（端口 8082）
+tags:
+  - name: entityDefs
+    description: 元类定义（entityDef）—— superType 继承 + 属性定义（#5）
+  - name: relationshipDefs
+    description: 关系定义（relationshipDef）—— 类型 + 基数 + 源/目标端点（#7）
+  - name: classifications
+    description: 分类树 —— 多级分类，预置只读 + 可扩展（#6）
+  - name: lifecycle
+    description: 生命周期与版本 —— 草稿→发布→下线 + vN 变更记录（#8）
+  - name: validation
+    description: 一致性校验门控 —— 编码唯一/关系完整性/循环依赖（#9）
+  - name: templates
+    description: 模板库导入 —— MySQL/Hive/Kafka/REST 标准模型族（#11）
+  - name: capabilities
+    description: 当前用户的元模型管理能力（前端据此决定可用入口）
+paths:
+  /api/metamodel/capabilities:
+    get:
+      summary: 取当前用户的元模型管理能力
+      description: |
+        返回当前租户上下文下用户可执行的写能力，供前端决定入口可用性
+        （如平台公共作用域写入、预置分类管理）。普通租户用户通常只可写 `TENANT_PRIVATE`。
+      operationId: getCapabilities
+      tags: [capabilities]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/metamodel/entity-defs:
+    get:
+      summary: 列出元类定义
+      description: 按作用域合并返回（平台公共 ∪ 本租户私有）；支持按状态/关键字过滤与分页。
+      operationId: listEntityDefs
+      tags: [entityDefs]
+      parameters:
+        - $ref: '#/components/parameters/ScopeFilter'
+        - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDefPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: 新建元类定义（草稿）
+      description: 创建 DRAFT 态 entityDef，落本租户私有作用域。编码唯一性等校验见 validation（#9）。
+      operationId: createEntityDef
+      tags: [entityDefs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityDefInput'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /api/metamodel/entity-defs/{code}:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    get:
+      summary: 取单个元类定义
+      description: |
+        `resolved=true` 时返回沿 superType 继承链**合并后**的有效属性集（#5 属性合并）；
+        默认返回声明态（仅本类自有属性）。
+      operationId: getEntityDef
+      tags: [entityDefs]
+      parameters:
+        - name: resolved
+          in: query
+          description: 是否返回继承合并后的有效属性集
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: 更新元类定义（仅草稿）
+      description: 仅 DRAFT 态可改；已发布版本不可变，改动须发布新版本（见 lifecycle）。
+      operationId: updateEntityDef
+      tags: [entityDefs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityDefInput'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      summary: 删除元类定义（仅草稿）
+      description: 仅 DRAFT 态可删；平台公共对租户只读，租户不可删公共定义。
+      operationId: deleteEntityDef
+      tags: [entityDefs]
+      responses:
+        '204':
+          description: 已删除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/entity-defs/{code}/publish:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    post:
+      summary: 发布元类定义
+      description: 触发一致性校验门控（#9），通过则 DRAFT→PUBLISHED 并产生新版本 vN；不通过返回 422 + 校验问题。
+      operationId: publishEntityDef
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: 已发布
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /api/metamodel/entity-defs/{code}/deprecate:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    post:
+      summary: 下线元类定义
+      description: 已发布 entityDef PUBLISHED→DEPRECATED；下线后不参与新实例校验，存量保留。可选给出原因。
+      operationId: deprecateEntityDef
+      tags: [lifecycle]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeprecateInput'
+      responses:
+        '200':
+          description: 已下线
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/entity-defs/{code}/versions:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    get:
+      summary: 列出元类定义的版本历史
+      description: 返回该 entityDef 的全部已发布版本 vN 及其变更记录（#8）。
+      operationId: listEntityDefVersions
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VersionRecord'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/metamodel/entity-defs/{code}/versions/{version}:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+      - $ref: '#/components/parameters/Version'
+    get:
+      summary: 取元类定义的某历史版本完整定义体
+      description: 返回指定版本 vN 的完整 entityDef 快照，供前端查看/对比/回滚读取（#8）。
+      operationId: getEntityDefVersion
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/metamodel/relationship-defs:
+    get:
+      summary: 列出关系定义
+      description: 按作用域合并返回；支持按状态/关键字过滤与分页。
+      operationId: listRelationshipDefs
+      tags: [relationshipDefs]
+      parameters:
+        - $ref: '#/components/parameters/ScopeFilter'
+        - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDefPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: 新建关系定义（草稿）
+      description: 端点 type 必须指向已存在的 entityDef，否则 422（关系完整性，#9）。
+      operationId: createRelationshipDef
+      tags: [relationshipDefs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipDefInput'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /api/metamodel/relationship-defs/{code}:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    get:
+      summary: 取单个关系定义
+      description: 返回指定编码的关系定义（含类型/基数/源目标端点）。
+      operationId: getRelationshipDef
+      tags: [relationshipDefs]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: 更新关系定义（仅草稿）
+      description: 仅 DRAFT 态可改；端点完整性等校验见 validation（#9）。
+      operationId: updateRelationshipDef
+      tags: [relationshipDefs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipDefInput'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      summary: 删除关系定义（仅草稿）
+      description: 仅 DRAFT 态可删；平台公共对租户只读。
+      operationId: deleteRelationshipDef
+      tags: [relationshipDefs]
+      responses:
+        '204':
+          description: 已删除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/relationship-defs/{code}/publish:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    post:
+      summary: 发布关系定义
+      description: 同 entityDef 发布，过校验门控后 DRAFT→PUBLISHED 并产生新版本。
+      operationId: publishRelationshipDef
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: 已发布
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /api/metamodel/relationship-defs/{code}/deprecate:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    post:
+      summary: 下线关系定义
+      description: 已发布 relationshipDef PUBLISHED→DEPRECATED；可选给出原因。
+      operationId: deprecateRelationshipDef
+      tags: [lifecycle]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeprecateInput'
+      responses:
+        '200':
+          description: 已下线
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/relationship-defs/{code}/versions:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    get:
+      summary: 列出关系定义的版本历史
+      description: 返回该 relationshipDef 的全部已发布版本 vN 及其变更记录（#8，与 entityDef 对称）。
+      operationId: listRelationshipDefVersions
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VersionRecord'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/metamodel/relationship-defs/{code}/versions/{version}:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+      - $ref: '#/components/parameters/Version'
+    get:
+      summary: 取关系定义的某历史版本完整定义体
+      description: 返回指定版本 vN 的完整 relationshipDef 快照，供前端查看/对比/回滚读取（#8，与 entityDef 对称）。
+      operationId: getRelationshipDefVersion
+      tags: [lifecycle]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipDef'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/metamodel/classifications:
+    get:
+      summary: 取分类树
+      description: 返回作用域合并后的分类树（平台预置只读 + 本租户扩展）。
+      operationId: getClassificationTree
+      tags: [classifications]
+      parameters:
+        - $ref: '#/components/parameters/ScopeFilter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassificationNode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: 新增分类节点
+      description: 在指定父节点下扩展分类；预置（preset=true）节点只读，不可在其上改名/删除。
+      operationId: createClassification
+      tags: [classifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassificationInput'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationNode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/classifications/{code}:
+    parameters:
+      - $ref: '#/components/parameters/Code'
+    put:
+      summary: 更新分类节点（改名 / 移动）
+      description: |
+        改节点显示名，或通过变更 `parentCode` **移动子树**到新父节点（不可移动到自身或后代，否则 409）。
+        预置只读节点（preset=true）不可改，返回 403。
+      operationId: updateClassification
+      tags: [classifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassificationUpdate'
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationNode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      summary: 删除分类节点
+      description: 仅租户扩展节点可删；预置只读节点删除返回 403；存在子节点时返回 409。
+      operationId: deleteClassification
+      tags: [classifications]
+      responses:
+        '204':
+          description: 已删除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/metamodel/validate:
+    post:
+      summary: 一致性校验（发布前 dry-run）
+      description: |
+        对当前作用域的元模型跑一致性校验（编码唯一 / 关系端点完整性 / superType 与关系循环依赖），
+        返回问题清单。发布动作（publish）内部复用同一校验作为门控（#9）。
+      operationId: validateMetamodel
+      tags: [validation]
+      parameters:
+        - $ref: '#/components/parameters/ScopeFilter'
+      responses:
+        '200':
+          description: 校验完成（valid 字段表示是否通过）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/metamodel/templates:
+    get:
+      summary: 列出可导入的模板族
+      description: 返回内置的标准模型族模板清单（MySQL/Hive/Kafka/REST，#11）。
+      operationId: listTemplates
+      tags: [templates]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/metamodel/templates/{templateId}/import:
+    parameters:
+      - name: templateId
+        in: path
+        required: true
+        schema: { type: string }
+        description: 模板族标识（如 mysql / hive / kafka / rest）
+    post:
+      summary: 导入模板族为元模型
+      description: 把标准模型族（entityDef + relationshipDef 组合）导入到作用域；重复导入按 conflictStrategy 处理（幂等）。
+      operationId: importTemplate
+      tags: [templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateImportInput'
+      responses:
+        '200':
+          description: 导入结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateImportResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    Code:
+      name: code
+      in: path
+      required: true
+      description: 定义编码（租户可见命名空间 = 平台公共 ∪ 本租户私有内全局唯一，kebab/snake 皆可）
+      schema: { type: string, example: "rdbms-table" }
+    Version:
+      name: version
+      in: path
+      required: true
+      description: 版本号 vN（整数，1 起）
+      schema: { type: integer, minimum: 1, example: 2 }
+    ScopeFilter:
+      name: scope
+      in: query
+      required: false
+      description: 作用域过滤；缺省返回平台公共 ∪ 本租户私有
+      schema:
+        $ref: '#/components/schemas/Scope'
+    StatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/LifecycleStatus'
+    Query:
+      name: q
+      in: query
+      required: false
+      description: 关键字（匹配 code / name / description）
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+  responses:
+    Unauthorized:
+      description: 未认证（缺/无效凭据，网关统一鉴权）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: 无权限（如租户用户写平台公共、改预置只读资源）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: |
+        冲突 —— `Error.code` 细分语义：`CODE_DUPLICATE`（编码已存在，含与平台公共同 code）/
+        `ILLEGAL_STATE`（状态不允许，如非 DRAFT 改删、对 DRAFT 下线）/ `HAS_CHILDREN`（分类节点有子节点）/
+        `ILLEGAL_MOVE`（分类移动到自身或后代）。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationFailed:
+      description: 一致性校验未通过
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationResult'
+  schemas:
+    Scope:
+      type: string
+      description: 作用域 —— 平台公共（共享只读）/ 租户私有
+      enum: [PLATFORM_PUBLIC, TENANT_PRIVATE]
+      example: TENANT_PRIVATE
+    LifecycleStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, DEPRECATED]
+      example: DRAFT
+    DataType:
+      type: string
+      enum: [string, long, double, boolean, date, datetime, enum, array, object]
+      example: string
+    Capabilities:
+      type: object
+      required: [writableScopes]
+      properties:
+        writableScopes:
+          type: array
+          description: 当前用户可写入的作用域（普通租户用户通常仅 TENANT_PRIVATE）
+          items:
+            $ref: '#/components/schemas/Scope'
+          example: [TENANT_PRIVATE]
+        canManagePresetClassifications:
+          type: boolean
+          description: 是否可管理平台预置分类（平台管理员）
+          example: false
+        canImportTemplates:
+          type: boolean
+          description: 是否可导入模板库
+          example: true
+    DeprecateInput:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: 下线原因（可选，留痕）
+          example: "由 rdbms-table-v2 取代"
+    AttributeDef:
+      type: object
+      required: [name, dataType]
+      properties:
+        name: { type: string, example: "rowCount" }
+        displayName: { type: string, example: "行数" }
+        dataType:
+          $ref: '#/components/schemas/DataType'
+        required: { type: boolean, default: false }
+        unique: { type: boolean, default: false }
+        indexed: { type: boolean, default: false }
+        custom:
+          type: boolean
+          default: false
+          description: 是否为扩展属性（区别于继承/内置属性）
+        defaultValue:
+          description: 默认值（类型随 dataType）
+        constraints:
+          type: object
+          description: 约束（如 enum 取值、min/max、正则），结构随 dataType
+          additionalProperties: true
+        inheritedFrom:
+          type: string
+          description: 仅 resolved 视图返回 —— 该属性来自哪个 superType（自有属性为空）
+          example: "rdbms-base"
+    EntityDefInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, example: "rdbms-table" }
+        name: { type: string, example: "关系型数据表" }
+        description: { type: string, example: "通用关系型数据库表元类" }
+        superTypes:
+          type: array
+          description: 父元类编码（支持多继承；属性按链合并，冲突见校验 #9）
+          items: { type: string }
+          example: ["data-asset"]
+        attributeDefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeDef'
+        classifications:
+          type: array
+          description: 关联的分类节点编码
+          items: { type: string }
+        scope:
+          $ref: '#/components/schemas/Scope'
+    EntityDef:
+      allOf:
+        - $ref: '#/components/schemas/EntityDefInput'
+        - type: object
+          required: [code, name, status, version, scope]
+          properties:
+            status:
+              $ref: '#/components/schemas/LifecycleStatus'
+            version: { type: integer, example: 1 }
+            audit:
+              $ref: '#/components/schemas/Audit'
+    EntityDefPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/EntityDef'
+    RelationshipCategory:
+      type: string
+      enum: [CONTAINMENT, DEPENDENCY, ASSOCIATION]
+      example: CONTAINMENT
+    Cardinality:
+      type: string
+      enum: [ONE_TO_ONE, ONE_TO_MANY, MANY_TO_MANY]
+      example: ONE_TO_MANY
+    RelationshipEndpoint:
+      type: object
+      required: [entityDefCode, name]
+      properties:
+        entityDefCode:
+          type: string
+          description: |
+            端点指向的 entityDef 编码（须已存在）。跨作用域规则见 info.description：
+            租户私有关系可指向平台公共 entityDef；平台公共关系不得指向租户私有 entityDef（#9 校验）。
+          example: "rdbms-table"
+        name:
+          type: string
+          description: 端点在该侧的关系名
+          example: "columns"
+    RelationshipDefInput:
+      type: object
+      required: [code, name, category, cardinality, endpoint1, endpoint2]
+      properties:
+        code: { type: string, example: "table-columns" }
+        name: { type: string, example: "表包含字段" }
+        description: { type: string }
+        category:
+          $ref: '#/components/schemas/RelationshipCategory'
+        cardinality:
+          $ref: '#/components/schemas/Cardinality'
+        endpoint1:
+          $ref: '#/components/schemas/RelationshipEndpoint'
+        endpoint2:
+          $ref: '#/components/schemas/RelationshipEndpoint'
+        scope:
+          $ref: '#/components/schemas/Scope'
+    RelationshipDef:
+      allOf:
+        - $ref: '#/components/schemas/RelationshipDefInput'
+        - type: object
+          required: [code, name, status, version, scope]
+          properties:
+            status:
+              $ref: '#/components/schemas/LifecycleStatus'
+            version: { type: integer, example: 1 }
+            audit:
+              $ref: '#/components/schemas/Audit'
+    RelationshipDefPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/RelationshipDef'
+    ClassificationInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, example: "biz-domain-sales" }
+        name: { type: string, example: "销售域" }
+        parentCode:
+          type: string
+          description: 父节点编码；为空表示根节点
+          example: "biz-domain"
+        scope:
+          $ref: '#/components/schemas/Scope'
+    ClassificationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 新显示名（可选）
+          example: "销售业务域"
+        parentCode:
+          type: string
+          description: 新父节点编码（移动子树用；不可指向自身或后代）
+          example: "biz-domain-root"
+    ClassificationNode:
+      allOf:
+        - $ref: '#/components/schemas/ClassificationInput'
+        - type: object
+          required: [code, name, preset, scope]
+          properties:
+            preset:
+              type: boolean
+              description: 是否平台预置（只读，租户不可改/删）
+              example: false
+            children:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClassificationNode'
+    VersionRecord:
+      type: object
+      required: [version, status]
+      properties:
+        version: { type: integer, example: 2 }
+        status:
+          $ref: '#/components/schemas/LifecycleStatus'
+        changeSummary:
+          type: string
+          example: "新增属性 rowCount；放宽 owner 必填"
+        changedAt:
+          type: string
+          format: date-time
+        changedBy:
+          type: string
+          example: "user-demo"
+    ValidationResult:
+      type: object
+      required: [valid, issues]
+      properties:
+        valid:
+          type: boolean
+          example: false
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+    ValidationIssue:
+      type: object
+      required: [rule, severity, message]
+      properties:
+        rule:
+          type: string
+          description: 触发的校验规则
+          enum: [CODE_UNIQUE, RELATION_INTEGRITY, CYCLIC_DEPENDENCY, ATTRIBUTE_CONFLICT]
+          example: CYCLIC_DEPENDENCY
+        severity:
+          type: string
+          enum: [ERROR, WARNING]
+          example: ERROR
+        target:
+          type: string
+          description: 问题对象（entityDef/relationshipDef 编码）
+          example: "rdbms-table"
+        message:
+          type: string
+          example: "superType 继承链存在循环：rdbms-table → data-asset → rdbms-table"
+    Template:
+      type: object
+      required: [id, name, sourceType]
+      properties:
+        id: { type: string, example: "mysql" }
+        name: { type: string, example: "MySQL 标准模型族" }
+        sourceType:
+          type: string
+          enum: [mysql, hive, kafka, rest]
+          example: mysql
+        description: { type: string }
+        entityDefCount: { type: integer, example: 4 }
+        relationshipDefCount: { type: integer, example: 3 }
+    TemplateImportInput:
+      type: object
+      properties:
+        scope:
+          $ref: '#/components/schemas/Scope'
+        conflictStrategy:
+          type: string
+          description: 同名 typedef 冲突处理
+          enum: [SKIP, MERGE, FAIL]
+          default: SKIP
+          example: SKIP
+    TemplateImportResult:
+      type: object
+      required: [imported, skipped]
+      properties:
+        imported:
+          type: integer
+          description: 实际导入的 typedef 数
+          example: 5
+        skipped:
+          type: integer
+          description: 因冲突跳过的数量
+          example: 2
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              action:
+                type: string
+                enum: [IMPORTED, SKIPPED, MERGED]
+    Page:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page: { type: integer, example: 1 }
+        pageSize: { type: integer, example: 20 }
+        total: { type: integer, example: 42 }
+    Audit:
+      type: object
+      properties:
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string, example: "user-demo" }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string, example: "user-demo" }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: "NOT_FOUND"
+        message:
+          type: string
+          example: "entityDef 'rdbms-table' 不存在"
+        details:
+          type: object
+          additionalProperties: true
