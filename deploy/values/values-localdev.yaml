@@ -1,6 +1,10 @@
 # ── 本地/dev 端到端验证环境覆盖（分层第三层 · 仅本地 kind 单 ns）。 ──
-# 目标：governance 等真实后端镜像就绪前，先把 gateway 的 E2E 在单 ns 跑通——
-#   启用 in-cluster Keycloak（真实 OIDC 身份源）+ go-httpbin 回显桩（临时受保护上游）+ gateway。
+# 目标：单 ns 真实贯通 浏览器 → gateway(OIDC + 注入 X-Tenant-*) → **真实 governance** → PG。
+#   启用 in-cluster Keycloak（真实 OIDC 身份源）+ PostgreSQL + gateway + 真实 governance 子 chart。
+# 一键部署（charts 资源限额见主仓 #33，6–8G dev 机可起 keycloak+governance 双 JVM）：
+#   helm dependency build deploy/charts/platform
+#   helm upgrade --install platform deploy/charts/platform -n demo --create-namespace \
+#     -f deploy/values/values.yaml -f deploy/values/values-localdev.yaml
 # 🔴 红线：本环境含 dev 占位凭据/脱敏 demo 用户，**严禁用于任何非本地环境**。
 global:
   env: localdev
@@ -8,25 +12,23 @@ global:
 baseNamespaces:
   podSecurity: baseline   # 本地放宽到 baseline，便于联调
 
-# dev 基础设施子 chart：in-cluster Keycloak + 回显 upstream + PostgreSQL（见 charts/infra-dev/README）。
+# dev 基础设施子 chart：in-cluster Keycloak + PostgreSQL（见 charts/infra-dev/README）。
 # PG 随 infra-dev 默认起（postgres.enabled 默认 true）：固定 Service postgres:5432，各服务独立 db 由 initdb 幂等建。
+# echoStub 关闭：A3 网关已直连真实 governance，不再需要 go-httpbin 回显桩。
+# （若要回到 A2 用 cluster_e2e B 档断言 X-Tenant 注入回显，临时置 echoStub.enabled=true 并把下方
+#  gateway.upstreams.governance 改回 host=upstream-echo/port=8080。）
 infra-dev:
   enabled: true
+  echoStub:
+    enabled: false
 
 # gateway（#17 已落地）：discovery 默认指向 in-cluster keycloak:8080（与 infra-dev 固定 Service 名对齐）。
+# A3：受保护路由上游 = 真实 governance:8082（gateway chart 默认值），不再指回显桩。
 gateway:
   enabled: true
-  # D-F · governance(I5) 未就绪期：受保护路由上游**临时**重指向 infra-dev 的 go-httpbin 回显桩，
-  # 使「网关注入 X-Tenant-* → 上游回显」闭环可被 cluster_e2e.py B 档断言。
-  # governance 镜像就绪后：infra-dev.echoStub.enabled=false + 此处改回 host=governance / port=8082。
-  upstreams:
-    governance:
-      host: upstream-echo
-      port: 8080
 
-# governance（#15 · I5/A2）：真实子 chart 进集群，datasource 指 infra-dev 的 in-cluster PG。
+# governance（#15 · I5/A3）：真实子 chart 进集群，datasource 指 infra-dev 的 in-cluster PG。
 # 镜像与 datasource(host=postgres/user=hashmatrix/db=governance) 由子 chart values 默认提供；此处仅开开关。
-# 注：此期 gateway 上游仍指 echo 桩（见上 D-F）；翻到真实 governance 是 A3
-#     （infra-dev.echoStub.enabled=false + 上面 upstreams.governance 改回 host=governance/port=8082）。
+# 资源限额/JVM 堆上限随子 chart 默认（#33），keycloak+governance 双 JVM 在 6G dev 机受 limit 约束可稳跑。
 governance:
   enabled: true
