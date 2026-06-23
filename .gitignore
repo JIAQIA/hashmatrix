@@ -47,6 +47,10 @@ secrets/
 # 红线 denylist：真实代号/客户术语词表仅本地留存，不入库
 libs-java/scripts/.redline-denylist
 
+# ===== 本地调试产物（Playwright MCP 会话日志 / 验证截图），可重生，不入库 =====
+.playwright-mcp/
+console-home.png
+
 # ===== Helm（deploy/）=====
 # umbrella vendored 子 chart（helm dependency build 产物，可重建，不入库）
 deploy/charts/*/charts/
