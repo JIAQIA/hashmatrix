@@ -4,7 +4,7 @@ owner: hashmatrix-gateway
 status: draft
 version: 1.2.0
 producers: [hashmatrix-gateway]
-consumers: [hashmatrix-governance, hashmatrix-security, hashmatrix-tools-bi, hashmatrix-privacy, hashmatrix-data-foundation, hashmatrix-platform-common, hashmatrix-control-plane]
+consumers: [hashmatrix-governance, hashmatrix-security, hashmatrix-privacy, hashmatrix-data-foundation, hashmatrix-platform-common, hashmatrix-control-plane]
 since: 2026-06-18
 ---
 
@@ -82,7 +82,7 @@ X-Tenant-Subject: 11111111-1111-4111-8111-111111111111
 
 - 本 ICD 走 semver。**加法兼容**（新增可选头、放宽来源）允许在 MINOR；**改名 / 改语义 / 收紧必需性**为破坏性，需 MAJOR + 弃用期（产生方双跑新旧头一个窗口）+ 通知全部 consumers。
 - 默认 consumer 为 **tolerant reader**：忽略未知头、不依赖头顺序。
-- **v1.0.0 → v1.1.0（MINOR · 加法放宽，非破坏）**：§3.4 由「多 org 一律 `403`」放宽为「解析到单活动租户、结构预留多 membership」。对消费方契约（读取唯一 `X-Tenant-Id`）**无破坏**——仅放宽产生方的拒绝面，原被边缘拦截的多 membership 请求现可携唯一租户头到达上游；故**不设弃用期 / 双跑窗口**，仅作**信息性通知**全部 consumers（到量可能上升，行为无需改，但请各消费方自检是否残留「持头用户必为单 org」的隐含假设——§6 已禁止）：governance / security / tools-bi / privacy / data-foundation / platform-common / control-plane。
+- **v1.0.0 → v1.1.0（MINOR · 加法放宽，非破坏）**：§3.4 由「多 org 一律 `403`」放宽为「解析到单活动租户、结构预留多 membership」。对消费方契约（读取唯一 `X-Tenant-Id`）**无破坏**——仅放宽产生方的拒绝面，原被边缘拦截的多 membership 请求现可携唯一租户头到达上游；故**不设弃用期 / 双跑窗口**，仅作**信息性通知**全部 consumers（到量可能上升，行为无需改，但请各消费方自检是否残留「持头用户必为单 org」的隐含假设——§6 已禁止）：governance / security / privacy / data-foundation / platform-common / control-plane。
 - **v1.1.0 → v1.2.0（MINOR · 加法，非破坏）**：补记**管理平面 `require_tenant=false`** 产生方模式（§3.6）及对应消费方容忍义务（§4.5）。纯加法——既有租户隔离路由（`require_tenant=true`）行为、与消费方读取唯一 `X-Tenant-Id` 的契约**均无变化**；仅显式化「管理面无租户上下文、`X-Tenant-*` 可缺失」这一既有实现（gateway#6），消除契约与实现的留痕缺口。不设弃用期；信息性通知**管理面消费方**（当前主要 control-plane）：admin 平面路由不带租户头，按 tolerant reader 处理。
 
 ## 8. 一致性校验要点（契约测试）

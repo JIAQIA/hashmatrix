@@ -30,8 +30,6 @@ governance:
   enabled: false
 security:
   enabled: false
-tools-bi:
-  enabled: false
 privacy:
   enabled: false
 data-foundation:

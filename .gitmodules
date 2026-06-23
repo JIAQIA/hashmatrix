@@ -10,9 +10,6 @@
 [submodule "services/security"]
 	path = services/security
 	url = https://github.com/HashMatrixData/hashmatrix-security.git
-[submodule "services/tools-bi"]
-	path = services/tools-bi
-	url = https://github.com/HashMatrixData/hashmatrix-tools-bi.git
 [submodule "services/privacy"]
 	path = services/privacy
 	url = https://github.com/HashMatrixData/hashmatrix-privacy.git

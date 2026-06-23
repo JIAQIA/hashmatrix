@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     数据治理（`services/governance`）作为平台**元数据供数中枢**对外的**同步供数 REST 契约**：
-    元数据检索 / 资产详情 / 血缘 / 权限要素与状态 / 开放查询。被资产门户、BI（`tools-bi`）、
+    元数据检索 / 资产详情 / 血缘 / 权限要素与状态 / 开放查询。被资产门户、
     安全中心（`security`）、数据服务等多个子系统消费。本契约由 ICD 草案
     [`icd/governance-metadata`](../icd/governance-metadata-icd.md) §2 细化而来；异步变更事件见
     [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)。
@@ -25,7 +25,7 @@ info:
     owner: hashmatrix-governance
     status: draft
     producers: [hashmatrix-governance]
-    consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
+    consumers: [hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
 servers:
   - url: https://api.example.com/governance        # 脱敏占位；实际经网关路由暴露
     description: 经网关暴露的治理供数 API（占位域名）
