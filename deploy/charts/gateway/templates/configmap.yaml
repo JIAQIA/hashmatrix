@@ -30,6 +30,11 @@ data:
         type: roundrobin
         nodes:
           "{{ .Values.upstreams.privacy.host }}:{{ .Values.upstreams.privacy.port }}": 1
+      - id: security-upstream
+        name: security-upstream
+        type: roundrobin
+        nodes:
+          "{{ .Values.upstreams.security.host }}:{{ .Values.upstreams.security.port }}": 1
     # 共享插件链：OIDC 校验 + 租户上下文注入 + 审计（受保护路由统一引用，DRY）。
     # 🔒 openid-connect 与 tenant-context 必须成对：前者验签注入 X-Userinfo，后者据此注入 X-Tenant-*。
     plugin_configs:
@@ -86,6 +91,29 @@ data:
         plugins:
           proxy-rewrite:
             regex_uri: ["^/api/privacy/(.*)", "/api/$1"]
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
+      # security 受保护路由：复用 auth-tenant 链注入 X-Tenant-*，路由到数据安全分系统。
+      # priority 高于 protected-api（/api/*）以确保 /api/security/* 不被通配兜底抢走（同 privacy-api）；
+      # security 后端 ProbeController 服务**全路径** /api/security/probe（@RequestMapping("/api/security")，
+      # 无 context-path），故不剥 /api 前缀（无 proxy-rewrite）；后端改路径时需同步本 uri。
+      # ⚠️ auth-tenant 链当前仅注入 X-Tenant-*，**未注入 X-User/X-Roles**；而 security probe 守
+      #    @PreAuthorize("hasRole('security-viewer')")（据 X-Roles）。故经网关 probe 当前预期 403（链路通+RBAC生效）；
+      #    返回 200 需 I2 在网关补 X-Userinfo→X-User/X-Roles 注入（非本路由可独立解决）。
+      - id: security-api
+        name: security-api
+        desc: "数据安全分系统受保护路由（probe / 分类分级 / 审计）"
+        uri: /api/security/*
+        priority: 10
+        upstream_id: security-upstream
+        plugin_config_id: auth-tenant
+        plugins:
           limit-count:
             count: {{ .Values.rateLimit.count }}
             time_window: {{ .Values.rateLimit.timeWindow }}

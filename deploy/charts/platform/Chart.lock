@@ -7,7 +7,7 @@ dependencies:
   version: 0.1.0
 - name: security
   repository: file://../security
-  version: 0.0.0-placeholder
+  version: 0.1.0
 - name: privacy
   repository: file://../privacy
   version: 0.0.0-placeholder
@@ -23,5 +23,5 @@ dependencies:
 - name: infra-dev
   repository: file://../infra-dev
   version: 0.2.0
-digest: sha256:f31c53d860826a50679584599442a7ab524324d6ac7dc8feb9ccb290aa231fda
-generated: "2026-06-22T10:13:53.497541+08:00"
+digest: sha256:fe9edb893631628f95124dccbf66b16c3e33e06811aea3c67da1d8585c53d8ea
+generated: "2026-06-23T17:54:01.621237+08:00"

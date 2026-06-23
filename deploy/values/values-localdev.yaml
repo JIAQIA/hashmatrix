@@ -32,3 +32,11 @@ gateway:
 # 资源限额/JVM 堆上限随子 chart 默认（#33），keycloak+governance 双 JVM 在 6G dev 机受 limit 约束可稳跑。
 governance:
   enabled: true
+
+# security（#38 · I5）：真实子 chart 进集群，datasource 指 infra-dev in-cluster PG（独立 db `security`，
+# Flowable 启动期自建 ACT_*）。镜像与 datasource 由子 chart values 默认提供；此处仅开开关。
+# ⚠️ 第三个 JVM（keycloak + governance + security）：子 chart 默认 memory limit（512Mi）是 OOM 护栏，
+#    6–8G dev 机受 limit 约束可起；更紧张时按需关闭本开关或下调资源（#32/#33）。
+# 经网关可达由 gateway chart 的 security-upstream + 受保护路由 /api/security/* 承载（I2）。
+security:
+  enabled: true
