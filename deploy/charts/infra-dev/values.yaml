@@ -69,13 +69,12 @@ postgres:
     password: hashmatrix
     bootstrapDb: hashmatrix   # postgres 镜像要求一个初始 db；各服务库由 initdb 脚本另建
   # 各服务独立 db（initdb 幂等创建）。新增后端时在此追加；JDBC: postgres:5432/<db>。
-  # 名取无分隔小写以免 SQL 加引号（control-plane→controlplane / tools-bi→toolsbi / data-foundation→datafoundation
+  # 名取无分隔小写以免 SQL 加引号（control-plane→controlplane / data-foundation→datafoundation
   # / platform-common→platformcommon）。
   databases:
     - governance
     - controlplane
     - security
-    - toolsbi
     - datafoundation
     - privacy
     - platformcommon

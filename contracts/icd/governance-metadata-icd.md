@@ -4,7 +4,7 @@ owner: hashmatrix-governance
 status: draft
 version: 0.1.0
 producers: [hashmatrix-governance]
-consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
+consumers: [hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
 since: 2026-06-18
 ---
 
@@ -19,7 +19,7 @@ since: 2026-06-18
 
 ## 1. 背景
 
-`governance`（数据治理）不是孤立 UI，而是平台的**元数据供数中枢**：对外提供**同步供数 API**，并对外发**异步元数据变更事件**，被资产门户 / BI(`tools-bi`) / 数据质量 / 集成调度 / 数据服务等多个子系统消费。这些是跨子系统契约，须在本 ICD 统一登记、先改契约再改实现。
+`governance`（数据治理）不是孤立 UI，而是平台的**元数据供数中枢**：对外提供**同步供数 API**，并对外发**异步元数据变更事件**，被资产门户 / 数据质量 / 集成调度 / 数据服务等多个子系统消费。这些是跨子系统契约，须在本 ICD 统一登记、先改契约再改实现。
 
 ## 2. 同步供数 API（REST · OpenAPI 3.1）
 
@@ -61,4 +61,4 @@ since: 2026-06-18
 - [x] 细化各 API 的请求/响应 schema → [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)
 - [x] 定事件 payload schema 与 topic 命名规范 → [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)（topic = `hashmatrix.governance.metadata.*`）
 - [ ] 确认事件传输方式（纯 Kafka vs Kafka+webhook 桥接）
-- [ ] 与 `security`（权限要素/标签）、`tools-bi`（取数/订阅）、数据服务 对齐消费契约
+- [ ] 与 `security`（权限要素/标签）、数据服务 对齐消费契约

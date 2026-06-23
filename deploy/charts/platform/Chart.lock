@@ -8,9 +8,6 @@ dependencies:
 - name: security
   repository: file://../security
   version: 0.1.0
-- name: tools-bi
-  repository: file://../tools-bi
-  version: 0.0.0-placeholder
 - name: privacy
   repository: file://../privacy
   version: 0.0.0-placeholder
@@ -29,5 +26,5 @@ dependencies:
 - name: infra-dev
   repository: file://../infra-dev
   version: 0.2.0
-digest: sha256:96fc43415d254ebc38d5a11df46d4635d73d37e68398dbf4291d84c1f0a191c6
-generated: "2026-06-23T11:54:03.176804+08:00"
+digest: sha256:69706913437606fd40fec5a34123d33789e18d98935bceb6dc7b89b74c3ac919
+generated: "2026-06-23T18:13:05.615646+08:00"

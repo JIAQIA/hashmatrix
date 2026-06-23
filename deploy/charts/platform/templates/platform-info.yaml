@@ -17,7 +17,6 @@ data:
       (ternary "gateway" "" .Values.gateway.enabled)
       (ternary "governance" "" .Values.governance.enabled)
       (ternary "security" "" .Values.security.enabled)
-      (ternary "tools-bi" "" (index .Values "tools-bi").enabled)
       (ternary "privacy" "" .Values.privacy.enabled)
       (ternary "data-foundation" "" (index .Values "data-foundation").enabled)
       (ternary "platform-common" "" (index .Values "platform-common").enabled)

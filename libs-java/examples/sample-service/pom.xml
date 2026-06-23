@@ -12,13 +12,13 @@
   <parent>
     <groupId>io.hashmatrix</groupId>
     <artifactId>hashmatrix-platform-parent</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <relativePath/>
   </parent>
 
   <groupId>io.hashmatrix.examples</groupId>
   <artifactId>sample-service</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.1</version>
 
   <name>sample-service</name>
   <description>libs-java 接入样例：演示 &lt;parent&gt; + import BOM + starter-tenant/web 的最小子仓。</description>
@@ -26,6 +26,9 @@
   <properties>
     <!-- 样例不发布 -->
     <maven.deploy.skip>true</maven.deploy.skip>
+    <!-- spring-boot-maven-plugin 版本：对齐 hashmatrix-bom 的 spring-boot.version。
+         import BOM 只传 dependencyManagement、不传 property，故子仓本地声明；BOM 升 spring-boot 时同步此处。 -->
+    <spring-boot.version>3.3.5</spring-boot.version>
   </properties>
 
   <dependencyManagement>
@@ -34,7 +37,7 @@
       <dependency>
         <groupId>io.hashmatrix</groupId>
         <artifactId>hashmatrix-bom</artifactId>
-        <version>0.2.0</version>
+        <version>0.2.1</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -72,8 +75,38 @@
     </dependency>
   </dependencies>
 
-  <!--
-    样例打普通 jar 即可证明「只 clone 子仓可构建」。
-    若子仓需可执行 fat-jar，自行加 spring-boot-maven-plugin（版本对齐 BOM 的 spring-boot.version）。
-  -->
+  <build>
+    <plugins>
+      <!-- repackage 成可执行 fat-jar，并配 classifier=exec：主 jar 不被 fat-jar 顶替，
+           failsafe 阶段裸 @SpringBootTest 仍能自动发现 @SpringBootConfiguration（见主仓 Discussion #21）。 -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>${spring-boot.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+            <configuration>
+              <classifier>exec</classifier>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- *IT 集成测试跑在 repackage 之后（integration-test 阶段）由 failsafe 执行；版本随 spring-boot-dependencies。 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

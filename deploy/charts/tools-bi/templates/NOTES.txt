@@ -1,2 +1,0 @@
-tools-bi 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/tools-bi 贡献后充实；关联 HashMatrixData/hashmatrix#2。

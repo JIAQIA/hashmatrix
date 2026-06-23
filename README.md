@@ -24,7 +24,6 @@
 | [`gateway`](./services/gateway) | 南北向网关 | 路由/限流/鉴权/审计 · 注入租户头 | APISIX · Keycloak OIDC |
 | [`governance`](./services/governance) | 应用层 · 数据治理 | 元数据/元模型引擎/血缘/质量/数据标准 | Spring Boot · 自研元模型引擎(Atlas 蓝本) · PostgreSQL · ES |
 | [`security`](./services/security) | 应用层 · 数据安全 | 分类分级/标签/审批/审计 | Spring Boot · Flowable · Prometheus |
-| [`tools-bi`](./services/tools-bi) | 应用层 · 数据工具 | 报表/自助分析/可视编排 | Spring Boot · DataEase · Doris |
 | [`privacy`](./services/privacy) | 应用层 · 隐私计算 | MPC/PSI/匿踪/节点互联 | SecretFlow(Python) · Java 编排 |
 | [`data-foundation`](./services/data-foundation) | 接入+计算+存储 · 数据底座 | 流批采集/湖仓/计算/Connector SPI | Flink · Kafka · SeaTunnel · Paimon · Doris · Milvus |
 | [`platform-common`](./services/platform-common) | 横切 · 平台公共 | 调度/工作流/统一元数据 | Spring Boot · DolphinScheduler · Flowable |
@@ -48,7 +47,6 @@ hashmatrix/                     # 主仓：公共依赖 + 部署运维
     ├── gateway/                → hashmatrix-gateway          南北向网关 · APISIX
     ├── governance/             → hashmatrix-governance       数据治理分系统 · Java
     ├── security/               → hashmatrix-security         数据安全分系统 · Java
-    ├── tools-bi/               → hashmatrix-tools-bi         数据工具(报表BI/可视编排)
     ├── privacy/                → hashmatrix-privacy          隐私计算 · Python+Java
     ├── data-foundation/        → hashmatrix-data-foundation  数据基础(采集/计算/湖仓)
     ├── platform-common/        → hashmatrix-platform-common  平台公共(调度/工作流/元数据)

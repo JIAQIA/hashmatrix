@@ -65,11 +65,11 @@
 
 | 服务 | App / 管理 | · | 服务 | App / 管理 |
 |---|---|---|---|---|
-| gateway(APISIX) | 9080 / —(admin 9180) | · | tools-bi | 8085 / 9085 |
-| control-plane | 8081 / 9081 | · | privacy orch-java | 8086 / 9086 |
-| governance | 8082 / 9082 | · | privacy engine-py | 8087 / — |
-| security | 8083 / 9083 | · | privacy node-mock | 8088 / — |
-| data-foundation | 8084 / 9084 | · | platform-common | 8089 / 9089 |
+| gateway(APISIX) | 9080 / —(admin 9180) | · | privacy orch-java | 8086 / 9086 |
+| control-plane | 8081 / 9081 | · | privacy engine-py | 8087 / — |
+| governance | 8082 / 9082 | · | privacy node-mock | 8088 / — |
+| security | 8083 / 9083 | · | platform-common | 8089 / 9089 |
+| data-foundation | 8084 / 9084 | · | — | — |
 
 中间件：PostgreSQL `5432`（单实例+独立 db）、Keycloak `8180`、Elasticsearch `9200`、Doris `8030/9030/8040`、MinIO `9000/9001`、Kafka `9092`。前端 dev：console `5173`、admin `5174`、prototype `3000`。
 

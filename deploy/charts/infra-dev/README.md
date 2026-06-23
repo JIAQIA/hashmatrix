@@ -72,7 +72,7 @@ realm `hashmatrix` 的事实源(SoT)在 **`services/gateway/keycloak/realm-expor
 
 - **固定 Service `postgres:5432`**（非 release 前缀）——各服务 datasource 以 `postgres:5432/<db>` 稳定引用。
 - **单实例 + 各服务独立 db**（呼应端口基线「5432 单实例+独立 db」）：库名由 `values.postgres.databases` 驱动，
-  `initdb` 阶段**幂等创建**（`governance`/`controlplane`/`security`/`toolsbi`/`datafoundation`/`privacy`）。新增后端在 values 追加即可。
+  `initdb` 阶段**幂等创建**（`governance`/`controlplane`/`security`/`datafoundation`/`privacy`）。新增后端在 values 追加即可。
 - **dev 占位凭据**：单超级用户 `hashmatrix/hashmatrix` 拥有全部 db（`values.postgres.auth`）——**严禁用于任何真实环境（红线）**。
 - **无持久卷**（emptyDir）：Pod 重建即重跑 initdb 重建各 db；dev e2e 足够，需持久化走下文 Operator 升级路径。
 - **可移植硬化**：非 root（uid/gid 999）+ fsGroup + seccomp，restricted PSA 的 ns 也可跑。

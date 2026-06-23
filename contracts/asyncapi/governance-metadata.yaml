@@ -7,7 +7,7 @@ info:
     [`icd/governance-metadata`](../icd/governance-metadata-icd.md) §3 细化而来。同步供数 REST 见
     [`openapi/governance-metadata-v1.yaml`](../openapi/governance-metadata-v1.yaml)。
 
-    **producer**：`hashmatrix-governance`。**subscribers**：BI（`tools-bi`）/ 安全（`security`）/
+    **producer**：`hashmatrix-governance`。**subscribers**：安全（`security`）/
     数据底座与质量（`data-foundation`）/ 平台公共调度（`platform-common`）。
 
     **传输**：以 Kafka topic 为主干（channel 名即 topic：`hashmatrix.governance.metadata.*`）。
@@ -30,7 +30,7 @@ info:
     owner: hashmatrix-governance
     status: draft
     producers: [hashmatrix-governance]
-    consumers: [hashmatrix-tools-bi, hashmatrix-security, hashmatrix-data-foundation, hashmatrix-platform-common]
+    consumers: [hashmatrix-security, hashmatrix-data-foundation, hashmatrix-platform-common]
 tags:
   - name: governance
     description: 数据治理域事件
