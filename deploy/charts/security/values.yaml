@@ -16,6 +16,11 @@ image:
   pullPolicy: IfNotPresent
 
 replicas: 1
+# 运行用户数字 uid：镜像 Dockerfile `USER app`（Alpine `adduser -S app` → uid=100）是命名用户，
+# 而 runAsNonRoot 校验需数字 uid 才能判定非 root（命名用户 → CreateContainerConfigError）。
+# 故 chart 显式 runAsUser 钉死该 uid。⚠️ 耦合镜像 Alpine 分配值；镜像若改基础镜像/用户须同步。
+# 长期更优解：子仓镜像改用数字 USER（对齐 governance/control-plane 的 USER 10001），届时此值可移除。
+runAsUser: 100
 # 资源限额（dev 保守默认；prod 经 values-<env> 上调）。**memory limit 是 OOM 护栏**——
 # 无 limit 时 JVM 按节点总内存自估 max heap，多 JVM 叠加会撑爆 dev 机（见主仓 #32）。
 resources:

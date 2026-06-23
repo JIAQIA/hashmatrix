@@ -18,10 +18,14 @@ spec:
         app.kubernetes.io/component: security
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      # 镜像 Dockerfile 已 USER app（非 root，见子仓 Dockerfile）；此处显式声明 + seccomp，
-      # 不带 runAsUser（由镜像 USER 决定）即满足 restricted PSA 的 runAsNonRoot 校验。
+      # 镜像 Dockerfile 用 USER app（Alpine `adduser -S app`→ uid=100），是**命名用户**而非数字 uid。
+      # runAsNonRoot 校验要求能判定非 root：命名用户 kubelet 启动前无法解析 → 报
+      # 「container has runAsNonRoot and image has non-numeric user (app), cannot verify user is non-root」
+      # （CreateContainerConfigError）。故此处显式 runAsUser 钉死镜像 app 用户的数字 uid（见 values.runAsUser）。
+      # ⚠️ 该 uid 耦合镜像 Alpine 分配值；长期更优解是子仓镜像改用数字 USER（如 governance USER 10001）。
       securityContext:
         runAsNonRoot: true
+        runAsUser: {{ .Values.runAsUser }}
         seccompProfile:
           type: RuntimeDefault
       containers:
