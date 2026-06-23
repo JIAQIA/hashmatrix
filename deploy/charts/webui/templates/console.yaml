@@ -1,3 +1,4 @@
+{{- if .Values.console.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -87,3 +88,4 @@ spec:
     - name: http
       port: {{ .Values.console.service.port }}
       targetPort: http
+{{- end }}

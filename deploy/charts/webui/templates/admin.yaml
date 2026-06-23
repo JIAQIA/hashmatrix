@@ -1,3 +1,4 @@
+{{- if .Values.admin.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -85,3 +86,4 @@ spec:
     - name: http
       port: {{ .Values.admin.service.port }}
       targetPort: http
+{{- end }}

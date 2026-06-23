@@ -25,6 +25,8 @@ branding:
 #    生产硬化（nginx-unprivileged + :8080 + runAsNonRoot）列 post-M1 follow-up（见 README）。
 
 console:
+  # 单平面开关（默认开）：console 是 M1 纵切链终端，常开；admin 可按环境单独关（如镜像后置）。
+  enabled: true
   image:
     repository: ghcr.io/hashmatrixdata/webui-console
     tag: "0.1.0"
@@ -49,6 +51,8 @@ console:
     oidcScope: "openid profile email"
 
 admin:
+  # 单平面开关（默认开）：admin 镜像后置时（post-M1）可置 false 单独关运营面，不影响 console 纵切链。
+  enabled: true
   image:
     repository: ghcr.io/hashmatrixdata/webui-admin
     tag: "0.1.0"

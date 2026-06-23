@@ -101,6 +101,9 @@ webui:
       oidcAuthority: "http://localhost:8180/realms/hashmatrix"
       oidcClientId: "hashmatrix-webui"
   admin:
+    # admin 运营面镜像后置（post-M1，见 webui#3 / PR #23 仅出 console 镜像）：暂关运营面，
+    # 不影响 console 纵切链（M1 DoD = browser→gateway→governance→PG→console 渲染）。admin 镜像出包后置 true 恢复。
+    enabled: false
     config:
       apiBaseUrl: "/api"
       oidcAuthority: "http://localhost:8180/realms/hashmatrix"
