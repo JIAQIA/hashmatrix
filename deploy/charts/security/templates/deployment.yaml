@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security
+  labels:
+    {{- include "security.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: security
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "security.labels" . | nindent 8 }}
+        app.kubernetes.io/component: security
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      # 镜像 Dockerfile 已 USER app（非 root，见子仓 Dockerfile）；此处显式声明 + seccomp，
+      # 不带 runAsUser（由镜像 USER 决定）即满足 restricted PSA 的 runAsNonRoot 校验。
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: security
+          image: {{ include "security.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: SERVER_PORT
+              value: {{ .Values.service.port | quote }}
+            - name: MANAGEMENT_SERVER_PORT
+              value: {{ .Values.managementPort | quote }}
+            {{- with .Values.jvmOpts }}
+            # JVM 堆受容器 memory limit 约束（非节点总内存）；防多 JVM 叠加 OOM（#32）。
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ . | quote }}
+            {{- end }}
+            # ── 数据源（infra-dev in-cluster PG，独立 db `security`）。Flowable 复用本连接自建 ACT_* ──
+            - name: PG_HOST
+              value: {{ .Values.datasource.host | quote }}
+            - name: PG_PORT
+              value: {{ .Values.datasource.port | quote }}
+            - name: PG_DB
+              value: {{ .Values.datasource.db | quote }}
+            - name: PG_USER
+              value: {{ .Values.datasource.user | quote }}
+            # 🔴 dev 占位明文；生产改 secretKeyRef/ESO 注入。
+            - name: PG_PASSWORD
+              value: {{ .Values.datasource.password | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+            - name: management
+              containerPort: {{ .Values.managementPort }}
+          readinessProbe:
+            # deps-optional readiness：仅看应用 readinessState（PG 缺失不拖垮）。探管理端口。
+            # failureThreshold 给足启动窗（Flowable 启动期建 ACT_* 表，比纯 web 慢）。
+            httpGet:
+              path: /actuator/health/readiness
+              port: management
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

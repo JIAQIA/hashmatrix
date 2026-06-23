@@ -1,2 +1,15 @@
-security 子 chart 当前为占位（version 0.0.0-placeholder），尚未包含可部署模板。
-真实部署模板由 submodule services/security 贡献后充实；关联 HashMatrixData/hashmatrix#2。
+security（数据安全）已渲染：Deployment + Service `security`（应用 8083 / 管理 9083）。
+datasource → in-cluster PG `{{ .Values.datasource.host }}:{{ .Values.datasource.port }}/{{ .Values.datasource.db }}`（Flowable 自建 ACT_*）。
+
+就绪自检：
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/security
+  kubectl -n {{ .Release.Namespace }} exec deploy/security -- \
+    sh -c 'wget -qO- http://127.0.0.1:{{ .Values.managementPort }}/actuator/health/readiness'
+
+经网关可达（受保护路由 /api/security/*，需 OIDC token）：
+  curl -H "Authorization: Bearer <token>" http://<gateway>:9080/api/security/probe
+  # 网关 auth-tenant 链当前仅注入 X-Tenant-*（tenant-context.lua），**尚未注入 X-User/X-Roles**。
+  # 故 probe 经网关当前预期 403——链路打通 + 方法级 RBAC 生效（缺 security-viewer 角色被拒）即算可达。
+  # 返回 200 需 I2 在网关补「X-Userinfo → X-User/X-Roles 注入」能力（见关联 issue），非本 chart 范畴。
+
+关联 HashMatrixData/hashmatrix#38（I5 · security 真实部署）/ #15（贯通主线 I5/I2）。

@@ -1,13 +1,14 @@
 apiVersion: v2
 name: security
 description: |
-  数据安全分系统（占位子 chart）。由 umbrella chart `platform` 按 `security.enabled` 条件聚合。
-  实际部署模板由对应 submodule services/security 贡献后逐步充实（schema-first / 占位先行）。
+  数据安全分系统子 chart（M1 真实部署）。由 umbrella chart `platform` 按 `security.enabled` 聚合。
+  D5：子仓 services/security 交付 image，主仓 owns chart。M1 提供 Deployment + Service（应用 8083 /
+  管理 9083），datasource 指向 infra-dev 的 in-cluster PG（独立 db `security`，Flowable 启动期自建 ACT_*）；
+  probe `/api/security/probe`（RBAC + 行级兜底）+ 数据权限最小骨架（#6）；完整 SC-6 属 post-M1。
 type: application
 
-# 占位版本：尚未发布。
-version: 0.0.0-placeholder
-appVersion: "0.0.0"
+version: 0.1.0
+appVersion: "0.1.0"
 
 keywords:
   - hashmatrix

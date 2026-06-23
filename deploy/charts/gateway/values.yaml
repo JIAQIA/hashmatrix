@@ -45,6 +45,11 @@ upstreams:
   privacy:
     host: privacy-orchestrator-java
     port: 8086
+  # 数据安全分系统。security chart 用固定 Service 名 security（对齐 governance 约定），
+  # 受保护路由 /api/security/* 指向此上游；后端 ProbeController 服务全路径 /api/security/probe。
+  security:
+    host: security
+    port: 8083
 
 # ── 受保护路由按租户限流（注入后的可信 $tenant_id 维度，非客户端原始头）──
 rateLimit:

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 `security`（非 release 前缀）：gateway upstream host=security:8083 依赖此名
+  # （单 ns 内 well-known fixture，同 governance/infra-dev keycloak/postgres）。
+  name: security
+  labels:
+    {{- include "security.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/component: security
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+    - name: management
+      port: {{ .Values.managementPort }}
+      targetPort: management
