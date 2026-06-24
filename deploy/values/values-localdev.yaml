@@ -30,8 +30,8 @@ gateway:
   enabled: true
   webui:
     hosts:
-      console: console.localdev
-      admin: admin.localdev
+      console: console.localhost   # 用 *.localhost：Chrome 视其为安全上下文（即使 HTTP）→ crypto.subtle 可用 → OIDC PKCE 正常（console.localdev 非安全上下文，PKCE 静默失败不跳转）
+      admin: admin.localhost
 
 # governance（#15 · I5/A3）：真实子 chart 进集群，datasource 指 infra-dev 的 in-cluster PG。
 # 镜像与 datasource(host=postgres/user=hashmatrix/db=governance) 由子 chart values 默认提供；此处仅开开关。
@@ -93,10 +93,12 @@ platform-common:
 # 🔑 OIDC authority = 集群内 Service 名 `keycloak:8080`（**与网关 oidc.discovery 同主机**）——这是浏览器
 #    登录能打通的关键：网关验签时校验 token 的 iss == discovery 的 issuer（keycloak:8080）；若浏览器经
 #    localhost:8180 取 token，iss=localhost:8180 ≠ keycloak:8080 → 登录后 /api 全 401（issuer split-horizon）。
-#    故浏览器侧须让 `keycloak` 解析到本机：/etc/hosts 加 `127.0.0.1 keycloak console.localdev`，并
+#    故浏览器侧须让 `keycloak` 解析到本机：/etc/hosts 加 `127.0.0.1 keycloak console.localhost`，并
 #    `kubectl port-forward svc/keycloak 8080:8080` + `svc/platform-gateway 9080:9080`，浏览器开
-#    http://console.localdev:9080/ 登录（详见 deploy/charts/webui/README 本地登录章节）。
-# 🔴 红线：脱敏占位（*.localdev / keycloak / Acme Demo Tech）；真实域名/realm 部署级注入。
+#    http://console.localhost:9080/ 登录（详见 deploy/charts/webui/README 本地登录章节）。
+# 🔑 console 用 *.localhost（非 *.localdev）：Chrome 把 *.localhost 视为安全上下文（即使 HTTP）→ crypto.subtle
+#    可用 → OIDC PKCE(S256) 正常；console.localdev 非安全上下文会让 signinRedirect 静默失败、点登录不跳转。
+# 🔴 红线：脱敏占位（*.localhost / keycloak / Acme Demo Tech）；真实域名/realm 部署级注入。
 webui:
   enabled: true
   branding:
@@ -108,8 +110,8 @@ webui:
       oidcAuthority: "http://keycloak:8080/realms/hashmatrix"
       oidcClientId: "hashmatrix-webui"
   admin:
-    # admin 运营面镜像后置（post-M1，见 webui#3 / PR #23 仅出 console 镜像）：暂关运营面，
-    # 不影响 console 纵切链（M1 DoD = browser→gateway→governance→PG→console 渲染）。admin 镜像出包后置 true 恢复。
+    # admin 运营面镜像未出 ghcr（webui#3 post-M1）→ 默认 false 防全新部署 ImagePull 失败。
+    # 本地体验运营面：先 docker build webui-admin:0.1.0 + kind load，再 `--set webui.admin.enabled=true` 部署。
     enabled: false
     config:
       apiBaseUrl: "/api"

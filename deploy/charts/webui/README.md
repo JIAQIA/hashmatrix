@@ -25,23 +25,25 @@ gateway chart 已加 `webui-console-upstream` / `webui-admin-upstream` + 两条*
 
 ## 本地浏览器登录（localdev · kind）
 
-浏览器走 OIDC 授权码流时，**token 的 `iss` 必须与网关 `oidc.discovery` 同主机**（集群内均为 `keycloak:8080`），否则登录后 `/api` 全 401（issuer split-horizon）。故浏览器侧也须用 `keycloak:8080` 这一主机名取 token——通过 hosts 映射 + port-forward 让宿主可达：
+两个要点：① **安全上下文**——OIDC PKCE(S256) 用 `crypto.subtle`，仅安全上下文可用；故 console 用 **`*.localhost`**（Chrome 视其为安全上下文，即使 HTTP），而非 `*.localdev`（非安全上下文 → 点登录 PKCE 静默失败不跳转）。② **issuer 一致**——token 的 `iss` 必须与网关 `oidc.discovery` 同主机（均 `keycloak:8080`），故浏览器也用 `keycloak:8080` 取 token（hosts 映射 + port-forward）。
 
 ```bash
-# 1) hosts（一次性，需 sudo）：让 keycloak / console.localdev 解析到本机
-echo "127.0.0.1 keycloak console.localdev" | sudo tee -a /etc/hosts
+# 1) hosts（一次性，需 sudo）：console.localhost（安全上下文）+ keycloak 解析到本机
+echo "127.0.0.1 keycloak console.localhost" | sudo tee -a /etc/hosts
 
-# 2) port-forward（前台各开一个，或加 & 后台）
+# 2) 浏览器侧代理绕行：把 console.localhost、keycloak 加入系统/代理 bypass（否则经代理 503）
+
+# 3) port-forward（前台各开一个，或加 & 后台）
 kubectl port-forward -n demo svc/keycloak 8080:8080
 kubectl port-forward -n demo svc/platform-gateway 9080:9080
 
-# 3) 浏览器打开（demo 用户 alice / Passw0rd!，租户 acme）
-open http://console.localdev:9080/
+# 4) 浏览器打开（demo 用户 alice / Passw0rd!，租户 acme）
+open http://console.localhost:9080/
 ```
 
 - 登录重定向至 `http://keycloak:8080/realms/hashmatrix/...`（= `values-localdev` 的 `console.config.oidcAuthority`），token `iss=http://keycloak:8080` → 网关验签通过 → `/api/meta/search` 返回真实目录。
-- 客户端为 realm 公共客户端 `hashmatrix-webui`（授权码流 + PKCE，见 `services/gateway/keycloak/realm-export.json`）。
-- 不设 hosts 时 console 页面仍可加载（`curl -H "Host: console.localdev" http://127.0.0.1:9080/`），但浏览器交互式登录依赖上述 hosts 映射。
+- 客户端为 realm 公共客户端 `hashmatrix-webui`（授权码流 + PKCE，redirectUri 含 `http://console.localhost:9080/*`，见 `services/gateway/keycloak/realm-export.json`）。
+- 不设 hosts 时 console 页面仍可加载（`curl -H "Host: console.localhost" http://127.0.0.1:9080/`），但浏览器交互式登录依赖上述 hosts + 安全上下文。
 
 ## ⚠️ 生产硬化 follow-up（post-M1）
 

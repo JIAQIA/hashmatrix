@@ -64,3 +64,5 @@ deploy/**/*.rendered.yaml
 !**/externalsecret*.yml
 !**/secretstore*.yaml
 !**/clustersecretstore*.yaml
+kc-*.png
+m1-*.png
