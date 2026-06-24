@@ -100,3 +100,23 @@ contracts:
     producers: [hashmatrix-governance]
     consumers:
       - hashmatrix-webui
+
+  - id: openapi/data-foundation-datasources-v1
+    type: openapi
+    path: openapi/data-foundation-datasources-v1.yaml
+    status: draft          # M2 数据源接入链①（锚点）：登记/测试连接/列表/库表/预览；据子仓实现回填（#55）
+    version: 0.1.0
+    producers: [hashmatrix-data-foundation]
+    consumers:
+      - hashmatrix-gateway
+      - hashmatrix-webui
+
+  - id: icd/data-foundation-datasources
+    type: icd
+    path: icd/data-foundation-datasources-icd.md
+    status: draft          # 数据源接入伴随 ICD：信封/租户隔离(D9)/凭据红线(D7)/连接器中立(D8)/防注入（#55）
+    version: 0.1.0
+    producers: [hashmatrix-data-foundation]
+    consumers:
+      - hashmatrix-gateway
+      - hashmatrix-webui

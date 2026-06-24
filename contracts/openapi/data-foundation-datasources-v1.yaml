@@ -1,0 +1,331 @@
+openapi: 3.1.0
+info:
+  title: Data Foundation · Datasources API
+  version: 0.1.0
+  description: |
+    数据底座（`services/data-foundation`）对外的**数据源接入**北向 REST 契约（M2 锚点链①）：
+    新建 MySQL 等数据源 → 真实测试连接 → 加密存 PG → 按租户列表 → 列库表 → 预览前 N 行。
+
+    **响应信封（平台约定）**：所有响应经平台统一信封 `ApiResponse { code, message, data, success }` 承载
+    （`code="0"` 表成功）。本契约各 `200` 响应描述的是信封内的 **`data` 负载**；错误经同一信封以非 `"0"`
+    的 `code` + `message` 表达（见 `Error`），`data` 为 `null`。与 `openapi/control-plane-v1` 一致。
+
+    **路径**：描述**网关暴露**的客户端路径 `/api/datasources/...`。网关 APISIX 对 `/api/datasources/*`
+    配 `require_tenant=true`：校验 JWT 后**注入** `X-Tenant-Id`（见 [`icd/tenant-context-headers`](../icd/tenant-context-headers-icd.md)），
+    服务据此强制租户隔离（D9）。故 `X-Tenant-Id` 为**网关注入**、非调用方自带参数，本契约不列为请求参数。
+    伴随说明见 [`icd/data-foundation-datasources`](../icd/data-foundation-datasources-icd.md)。
+
+    **凭据红线（D7）**：数据源口令仅在请求体单向提交（`writeOnly`），服务端 AES-GCM 加密落库；
+    **任何响应、列表、预览、错误信息均不回显口令明文**。预留 `secret_ref` 间接层语义（后续切 ESO/Vault）。
+
+    **连接器中立（D8）**：`type` 为方言类型键（`mysql` 为第一个 SPI 方言实现），路径/模型**不写死单一数据库**；
+    新增方言只加插件，端点/模型零改。
+
+    🔴 红线：示例一律脱敏（`acme` / `tenant-demo` / `example.com` / `orders_demo`），不含任何真实信息。
+  contact:
+    name: hashmatrix platform
+    url: https://github.com/HashMatrixData/hashmatrix
+  x-contract:                       # 契约元数据（front-matter 等价物，见 CONVENTIONS §1）
+    id: openapi/data-foundation-datasources-v1
+    owner: hashmatrix-data-foundation
+    status: draft
+    producers: [hashmatrix-data-foundation]
+    consumers: [hashmatrix-gateway, hashmatrix-webui]
+servers:
+  - url: https://api.example.com    # 脱敏占位；实际经网关 /api/datasources/* 路由暴露
+    description: 经网关暴露的数据底座 API（占位域名）
+security:
+  - bearerAuth: []
+tags:
+  - name: datasources
+    description: 数据源登记与连接测试（按 X-Tenant-Id 隔离）
+  - name: catalog
+    description: 库表清单与数据预览（旁路取结构 / 受限取样）
+paths:
+  /api/datasources/test:
+    post:
+      tags: [datasources]
+      summary: 测试数据源连接（真连）
+      description: |
+        按 `type` 选方言拼 JDBC URL 并**真实连接**。探测本身恒为一次成功的 API 调用（`200`），
+        连通结果在 `data.ok`；连不上时 `data.ok=false` 且 `data.message` 给**脱敏后的真实错误**（不含口令）。
+        请求体非法（缺字段 / 端口越界 / 类型不支持）→ `400`。
+      operationId: testDatasourceConnection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TestConnectionRequest' }
+      responses:
+        '200':
+          description: 探测结果（连通与否见 `data.ok`）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TestConnectionResult' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/datasources:
+    post:
+      tags: [datasources]
+      summary: 登记数据源（口令加密落库）
+      description: |
+        保存一个数据源到**当前租户**（D9）；口令经 AES-GCM 加密存 `secret_cipher`（D7），响应**不含口令**。
+        同租户内名称唯一（重复 → `409`）；跨租户同名可独立存在。
+      operationId: createDatasource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDatasourceRequest' }
+      responses:
+        '200':
+          description: 已登记的数据源视图（无口令字段）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatasourceView' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      tags: [datasources]
+      summary: 列出本租户的数据源
+      description: 仅返回**当前租户**（X-Tenant-Id）的数据源（D9）；响应**不含口令字段**。
+      operationId: listDatasources
+      responses:
+        '200':
+          description: 本租户数据源列表（可为空数组）
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DatasourceView' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/datasources/{id}/tables:
+    parameters:
+      - $ref: '#/components/parameters/DatasourceId'
+    get:
+      tags: [catalog]
+      summary: 列出数据源下的库表
+      description: |
+        以保存的数据源（解密口令后）打开连接，**旁路读结构**列出库表（D7 解密即用即弃，不回显口令）。
+        数据源不存在或非本租户 → `404`（D9：不泄露存在性）。
+      operationId: listDatasourceTables
+      responses:
+        '200':
+          description: 库表清单
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TableView' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/datasources/{id}/preview:
+    parameters:
+      - $ref: '#/components/parameters/DatasourceId'
+    post:
+      tags: [catalog]
+      summary: 预览某表前 N 行
+      description: |
+        预览指定表的前 N 行。**防注入**：表名先按真实元数据**白名单**校验，命中后以规范化引用构造查询，
+        绝不拼接客户端字符串；行数 `limit` 钳制到 `[1, 1000]`（默认 100）并在驱动侧封顶（方言中立，非 `LIMIT` 拼接）。
+        数据源不存在/非本租户 → `404 DATASOURCE_NOT_FOUND`；表不在元数据白名单 → `404 TABLE_NOT_FOUND`。
+      operationId: previewDatasourceTable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreviewRequest' }
+      responses:
+        '200':
+          description: 预览结果（列 + 行，至多 `limit` 行）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreviewResult' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak 颁发的 JWT，经网关 APISIX 校验；data-foundation 信任网关注入的 X-Tenant-Id 上下文（D9）。
+  parameters:
+    DatasourceId:
+      name: id
+      in: path
+      required: true
+      description: 数据源 id（UUID）
+      schema:
+        type: string
+        format: uuid
+        example: 7c3a1d00-0000-4000-8000-0000000000ac
+  responses:
+    BadRequest:
+      description: 请求不合法（如缺字段、端口越界、类型不支持、缺租户上下文）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: 数据源或表不存在（含非本租户访问，不泄露存在性）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: 同租户内数据源名称冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    ConnectionParams:
+      type: object
+      description: 连接参数（被连接数据源）。`password` 单向提交、绝不回显（D7）。
+      required: [type, host, port, database, username]
+      properties:
+        type:
+          type: string
+          description: 方言类型键（D8）。`mysql` 为首个 SPI 方言实现，不写死单一数据库。
+          example: mysql
+        host:
+          type: string
+          example: mysql.example.com
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 3306
+        database:
+          type: string
+          example: acme
+        username:
+          type: string
+          example: demo
+        password:
+          type: string
+          writeOnly: true
+          description: 口令明文，仅用于服务端加密落库 / 临时连接；**任何响应均不回显**（D7）。
+          example: demo-pwd-placeholder
+    TestConnectionRequest:
+      allOf:
+        - $ref: '#/components/schemas/ConnectionParams'
+        - type: object
+          description: 测试连接请求。`password` 可空（用于无鉴权源）。
+    CreateDatasourceRequest:
+      allOf:
+        - $ref: '#/components/schemas/ConnectionParams'
+        - type: object
+          required: [name, password]
+          properties:
+            name:
+              type: string
+              description: 数据源展示名（**租户内唯一**）。
+              example: acme-mysql
+    TestConnectionResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok:
+          type: boolean
+          description: 是否连上且有效。
+          example: true
+        message:
+          type: string
+          description: 成功为 `connected`；失败为**脱敏后**的真实错误（不含口令）。
+          example: connected
+    DatasourceView:
+      type: object
+      description: 数据源视图（对外）。**不含任何口令字段**（明文/密文/引用一律不出，D7）。
+      required: [id, name, type, host, port, database, username, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 7c3a1d00-0000-4000-8000-0000000000ac
+        name: { type: string, example: acme-mysql }
+        type: { type: string, example: mysql }
+        host: { type: string, example: mysql.example.com }
+        port: { type: integer, example: 3306 }
+        database: { type: string, example: acme }
+        username: { type: string, example: demo }
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-06-24T08:52:26Z"
+    TableView:
+      type: object
+      description: 库表视图。`catalog`/`schema` 取自真实元数据（部分数据源无对应层级时为 null）。
+      required: [name]
+      properties:
+        catalog:
+          type: [string, "null"]
+          example: acme
+        schema:
+          type: [string, "null"]
+          example: public
+        name:
+          type: string
+          example: orders_demo
+    PreviewRequest:
+      type: object
+      required: [table]
+      properties:
+        table:
+          type: string
+          description: 表名（必填，按真实元数据白名单校验，防注入）。
+          example: orders_demo
+        schema:
+          type: [string, "null"]
+          description: 模式（可空，参与白名单匹配；如 MySQL 无 schema 层级则省略）。
+          example: public
+        limit:
+          type: [integer, "null"]
+          description: 期望行数（可空；钳制到 `[1, 1000]`，默认 100）。
+          minimum: 1
+          maximum: 1000
+          example: 100
+    PreviewResult:
+      type: object
+      required: [columns, rows, limit]
+      properties:
+        columns:
+          type: array
+          description: 列名（保序）。
+          items: { type: string }
+          example: [id, customer, amount]
+        rows:
+          type: array
+          description: 行（列名→值，保序）；至多 `limit` 行。值为数据源读出的原生类型。
+          items:
+            type: object
+            additionalProperties: true
+          example:
+            - { id: 1, customer: acme-co, amount: 100.00 }
+            - { id: 2, customer: tenant-demo, amount: 250.00 }
+        limit:
+          type: integer
+          description: 生效的行上限（钳制后）。
+          example: 100
+    Error:
+      type: object
+      description: 统一错误信封（平台 ApiResponse 的 code+message；data 为 null）。
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: |
+            机器可读错误码。已定义：
+            `VALIDATION_ERROR`（请求体非法）、`TENANT_REQUIRED`（缺租户上下文）、
+            `UNSUPPORTED_DATASOURCE_TYPE`（无对应方言插件）、`DATASOURCE_NAME_CONFLICT`（同租户重名）、
+            `DATASOURCE_NOT_FOUND`（数据源不存在/非本租户）、`TABLE_NOT_FOUND`（表不在白名单）。
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: 人类可读提示（**不含口令**）。
+          example: host 不能为空
