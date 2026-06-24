@@ -1,0 +1,90 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  replicas: 1
+  # 单实例有状态库：Recreate 避免滚动期两副本并存（dev 无持久卷，更不应有第二写者）。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: mysql
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "infra-dev.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mysql
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # 种子脚本变更滚动重启（仅空 datadir 时生效；dev emptyDir 每次重建都会重跑 initdb）。
+        checksum/initdb: {{ include (print $.Template.BasePath "/mysql-configmap.yaml") . | sha256sum }}
+    spec:
+      # 非 root（官方 mysql 用户 uid/gid 999）+ fsGroup 令 emptyDir 对该 gid 可写——
+      # 令本 dev chart 在打了 baseline/restricted PSA label 的 ns 也可移植（与 postgres 同款）。
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mysql
+          image: {{ include "infra-dev.mysql.image" . | quote }}
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            # 仅本地 dev 占位凭据 / 脱敏 demo——严禁用于真实环境（红线）。
+            - name: MYSQL_ROOT_PASSWORD
+              value: {{ .Values.mysql.auth.rootPassword | quote }}
+            # MYSQL_DATABASE 由镜像在 initdb 阶段创建；种子表经 configmap 注入到此库。
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.auth.database | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.mysql.auth.username | quote }}
+            - name: MYSQL_PASSWORD
+              value: {{ .Values.mysql.auth.password | quote }}
+          ports:
+            - name: mysql
+              containerPort: {{ .Values.mysql.service.port }}
+          readinessProbe:
+            # mysqladmin ping = 服务已可接受连接（initdb + 种子完成后才稳定 ready）。
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          livenessProbe:
+            tcpSocket:
+              port: mysql
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        # dev 无持久卷（与本 chart Keycloak/PG 一致）：Pod 重建即重跑 initdb 重建种子，dev e2e 足够。
+        - name: data
+          emptyDir: {}
+        - name: initdb
+          configMap:
+            name: mysql-initdb
+{{- end }}

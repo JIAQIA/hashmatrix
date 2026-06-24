@@ -1,0 +1,21 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 `mysql`（非 release 前缀）：data-foundation 测试连接/预览以 `mysql:3306` 稳定引用
+  # 这个**被连接的样例数据源**（well-known dev fixture，by design——同 postgres/keycloak）。
+  # ⚠️ 与平台自身存储 PostgreSQL 职责不同、不可混用（总纲 §3 R4）。
+  name: mysql
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: mysql
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: mysql
+      port: {{ .Values.mysql.service.port }}
+      targetPort: mysql
+{{- end }}

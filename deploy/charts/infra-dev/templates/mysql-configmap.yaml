@@ -1,0 +1,26 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  labels:
+    {{- include "infra-dev.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mysql
+data:
+  # mysql 官方镜像在「datadir 为空」时执行 /docker-entrypoint-initdb.d/*.sql（dev emptyDir 每次重建都会跑），
+  # 且以 MYSQL_DATABASE 为默认库。此处种**一张虚构脱敏表**供 data-foundation 测试连接/列表/预览有真东西可连。
+  # 🔴 红线：数据一律虚构脱敏（acme / orders_demo / example.com），严禁任何真实样本（R4）。
+  10-seed.sql: |
+    CREATE DATABASE IF NOT EXISTS {{ .Values.mysql.auth.database }};
+    USE {{ .Values.mysql.auth.database }};
+    CREATE TABLE IF NOT EXISTS orders_demo (
+      id        INT           NOT NULL PRIMARY KEY,
+      customer  VARCHAR(64)   NOT NULL,
+      amount    DECIMAL(12,2) NOT NULL,
+      created   DATE          NOT NULL
+    );
+    INSERT IGNORE INTO orders_demo (id, customer, amount, created) VALUES
+      (1, 'acme-co',     100.00, '2026-01-02'),
+      (2, 'tenant-demo', 250.00, '2026-01-05'),
+      (3, 'example-inc', 375.50, '2026-01-09');
+{{- end }}
