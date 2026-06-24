@@ -22,3 +22,9 @@ hashmatrix.io/tier: dev-infra
 {{- $img := printf "%s:%s" .Values.postgres.image.repository .Values.postgres.image.tag -}}
 {{- if $reg }}{{ printf "%s/%s" $reg $img }}{{- else }}{{ $img }}{{- end }}
 {{- end -}}
+
+{{- define "infra-dev.mysql.image" -}}
+{{- $reg := .Values.global.imageRegistry | default "" -}}
+{{- $img := printf "%s:%s" .Values.mysql.image.repository .Values.mysql.image.tag -}}
+{{- if $reg }}{{ printf "%s/%s" $reg $img }}{{- else }}{{ $img }}{{- end }}
+{{- end -}}

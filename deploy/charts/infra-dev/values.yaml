@@ -87,3 +87,29 @@ postgres:
       memory: 64Mi
     limits:
       memory: 256Mi
+
+# ── demo MySQL（**被连接的样例数据源**，非平台自身存储；M2 数据源接入链①）──
+# data-foundation「测试连接 / 列库表 / 预览」以固定 Service `mysql:3306` 连接本库；种子一张虚构脱敏表。
+# ⚠️ 与平台自身 PostgreSQL 职责不同、不可混用（总纲 §3 R4）。dev 级、单实例、emptyDir（无持久卷）。
+# 🔴 红线：凭据为 dev 占位、数据全虚构脱敏（acme / orders_demo），严禁真实甲方参数/样本。
+mysql:
+  enabled: true
+  image:
+    repository: mysql
+    tag: "8.0"                # 钉 major.minor，dev 可复现；走 DaoCloud docker.io 镜像（见 tools/local-infra）
+    pullPolicy: IfNotPresent
+  # 仅本地 dev 占位凭据——严禁用于真实环境（红线）。
+  auth:
+    rootPassword: root_local_only
+    database: acme            # 被连接样例库（脱敏占位）；种子表 orders_demo 落此库
+    username: demo
+    password: demo_local_only
+  service:
+    port: 3306
+  # 资源限额（dev 保守默认）。MySQL 是 JVM 以外的 C++ 服务，但 8.0 内存占用偏高 → limit 给足（OOM 护栏 #32）。
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
