@@ -13,7 +13,7 @@ enabled: false
 
 image:
   repository: ghcr.io/hashmatrixdata/data-foundation
-  tag: "0.1.0"                # dev 固定 tag；本地经 kind load 入节点（配 IfNotPresent）
+  tag: "0.1.0-SNAPSHOT"       # 移动 dev tag（对齐子仓 CI：image tag=project.version=0.1.0-SNAPSHOT，与 governance 同款）
   pullPolicy: IfNotPresent
 
 replicas: 1

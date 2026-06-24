@@ -57,12 +57,14 @@ security:
 # 身份开通默认 stub（keycloak.enabled=false），M1 不阻塞；切真实 Keycloak 见子 chart README。
 control-plane:
   enabled: true
+  # control-plane 比其余后端多跑 Flyway 迁移 + JPA/Hibernate 初始化，384Mi limit 启动期必 OOMKilled（M1·I4 实测）；
+  # 抬到 640Mi limit / 384Mi request（堆随 MaxRAMPercentage 自适配）。data-foundation 暂停时本机 6–8G 仍宽裕。
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
-    limits:
       memory: 384Mi
+    limits:
+      memory: 640Mi
   jvmOpts: "-XX:MaxRAMPercentage=70.0"
 
 # data-foundation（数据底座）：M1 无持久 datasource（连接器目录骨架）。

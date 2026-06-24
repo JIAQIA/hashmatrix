@@ -90,7 +90,10 @@ data:
             require_identity: true
           audit-log: {}
     routes:
-      # 受保护路由：共享 auth-tenant 链 + 按租户限流。无 token -> 401；合法 token -> 上游可见 X-Tenant-*。
+      # 受保护路由（governance 兜底）：共享 auth-tenant 链 + 按租户限流。无 token -> 401；合法 token -> 上游可见 X-Tenant-*。
+      # governance 后端服务**全路径** /api/meta/*（@RequestMapping("/api/meta")，无 context-path），与 security/control-plane
+      # 同款约定 → **不剥 /api 前缀**（无 proxy-rewrite）。早期指向 go-httpbin mock-upstream 时曾 strip 到 /$1，
+      # 真实 governance 落地后该 strip 会令上游收到 /meta/search → 500（M1·I4 实测），故移除。后端改路径时同步本 uri。
       - id: protected-api
         name: protected-api
         desc: "受保护 API——租户上下文进入系统的第一道关"
@@ -98,8 +101,6 @@ data:
         upstream_id: platform-upstream
         plugin_config_id: auth-tenant
         plugins:
-          proxy-rewrite:
-            regex_uri: ["^/api/(.*)", "/$1"]
           limit-count:
             count: {{ .Values.rateLimit.count }}
             time_window: {{ .Values.rateLimit.timeWindow }}
