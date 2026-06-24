@@ -192,10 +192,13 @@ data:
             allow_degradation: true
       # data-foundation 受保护路由：复用 auth-tenant 链，路由到数据底座。
       # 后端 ConnectorController 服务全路径 /api/connectors/...（无 context-path）→ 不剥前缀。
+      # 同时匹配 bare `/api/connectors`（= ConnectorController.list() 端点）与子路径 `/api/connectors/*`
+      # （如 /tenant-catalog）：`/api/connectors/*` 不匹配无尾斜杠的 bare 路径 → 会落 /api/* 兜底打到
+      # governance 返 500（M1·I4 实测）。用 uris 数组覆盖两者。
       - id: data-foundation-api
         name: data-foundation-api
         desc: "数据底座受保护路由（连接器目录）"
-        uri: /api/connectors/*
+        uris: ["/api/connectors", "/api/connectors/*"]
         priority: 10
         upstream_id: data-foundation-upstream
         plugin_config_id: auth-tenant
