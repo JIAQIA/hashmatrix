@@ -42,22 +42,42 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: {{ . | quote }}
             {{- end }}
-            # M1 无持久 datasource（连接器目录骨架）；租户头由网关强制注入，服务侧不强制（app 默认）。
+            # 持久层（M2 WP1）：JPA 接 in-cluster PG 独立 db `datafoundation`；schema 由 Flyway 管。
+            # 租户头由网关强制注入，服务侧不强制（app 默认）。
+            - name: DATA_FOUNDATION_DB_URL
+              value: {{ .Values.datasource.url | quote }}
+            - name: DATA_FOUNDATION_DB_USER
+              value: {{ .Values.datasource.username | quote }}
+            - name: DATA_FOUNDATION_DB_PASSWORD
+              value: {{ .Values.datasource.password | quote }}
+            # D7 数据源加密主密钥（Base64 32 字节 AES-256；CryptoService 启动校验，缺/长度错 fail-fast）。
+            # prod：crypto.existingSecret 指向**外部供给**的 Secret（ESO/SealedSecret），主密钥绝不入库；
+            # dev：无 existingSecret 时回退占位明文 env（同 DB 口令的 dev 处理），仅本地脱敏占位。
+            - name: DS_SECRET_KEY
+              {{- if .Values.datasource.crypto.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.datasource.crypto.existingSecret | quote }}
+                  key: {{ .Values.datasource.crypto.existingSecretKey | default "DS_SECRET_KEY" | quote }}
+              {{- else }}
+              value: {{ .Values.datasource.crypto.secretKeyBase64 | quote }}
+              {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
             - name: management
               containerPort: {{ .Values.managementPort }}
           readinessProbe:
-            # deps-optional readiness：仅看应用 readinessState。探管理端口。
-            # 无 schema 初始化 → failureThreshold 较 governance/security 收紧。
+            # readiness：仅看应用 readinessState（探管理端口）。
+            # M2 起依赖 in-cluster PG + Flyway 建表：PG 未就绪时应用 fail-fast 重启直至 PG ready，
+            # 故 failureThreshold 给足（与 governance/security 同档），容忍启动期 PG 尚未 ready。
             httpGet:
               path: /actuator/health/readiness
               port: management
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 12
+            failureThreshold: 18
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness

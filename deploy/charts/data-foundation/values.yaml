@@ -1,8 +1,8 @@
-# data-foundation 子 chart values —— M1 真实部署（数据底座分系统）。
+# data-foundation 子 chart values —— 真实部署（数据底座分系统）。
 # 🔴 红线：仅 dev 占位凭据 / 脱敏 demo（acme / tenant-demo / example.com）；严禁任何真实甲方参数。
 # D5：子仓交付 image，主仓 owns chart；镜像部署级注入、tag 固定（勿 latest）。
 # umbrella 经 `data-foundation.enabled` 渲染（默认关，仅 values-localdev 开）。
-# 注意：M1 app 模块无持久 datasource（连接器目录骨架）→ 本子 chart 不注入 PG env。
+# M2 起 app 有持久层（数据源接入链）：datasource 指 in-cluster PG 独立 db、D7 主密钥经 Secret 注入（见下）。
 
 # umbrella 注入的全局项（standalone 渲染时为空 dict）；imageRegistry 供信创 xc 切私有/国产化镜像仓。
 global:
@@ -31,3 +31,20 @@ service:
   type: ClusterIP
   port: 8084                  # 应用 HTTP（端口基线）；gateway upstream host=data-foundation:8084 依赖此名/口
 managementPort: 9084          # actuator（探针/指标），独立于应用端口（端口基线 §3）
+
+# 持久层（M2 WP1）：JPA 接 in-cluster PG 独立 db `datafoundation`（infra-dev postgres.databases 已含）。
+# 🔴 红线：口令为 dev 占位（与 infra-dev PG auth 对齐），严禁真实凭据；prod 经 values-<env> 覆盖。
+datasource:
+  url: jdbc:postgresql://postgres:5432/datafoundation   # 固定 Service postgres:5432（infra-dev）
+  username: hashmatrix
+  password: hashmatrix
+  crypto:
+    # 🔴 D7 主密钥（Base64 编码的 32 字节 AES-256）。本平台**不在仓库提交 Secret 清单**（.gitignore 拦
+    #   `**/*secret*.yaml`）——主密钥由部署期**外部供给**，绝不入库。
+    #   · prod：把 existingSecret 置为外部供给（ESO/SealedSecret/手动 kubectl）的 Secret 名，
+    #     deployment 经 secretKeyRef 注入；secretKeyBase64 留空、不入库明文。
+    #   · dev：existingSecret 留空 → 回退下方占位明文 env（与 DB 口令同款 dev 处理，仅本地脱敏占位）。
+    existingSecret: ""                       # 优先；置 Secret 名即走 secretKeyRef
+    existingSecretKey: DS_SECRET_KEY         # 该 Secret 内的键名
+    # dev-only 脱敏占位 = base64("0123456789ABCDEF0123456789ABCDEF")；prod 改用 existingSecret、此项留空。
+    secretKeyBase64: "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY="

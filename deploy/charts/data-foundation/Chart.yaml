@@ -1,14 +1,15 @@
 apiVersion: v2
 name: data-foundation
 description: |
-  数据底座分系统子 chart（M1 真实部署）。由 umbrella chart `platform` 按 `data-foundation.enabled` 聚合。
-  D5：子仓 services/data-foundation 交付 image，主仓 owns chart。M1 提供 Deployment + Service（应用 8084 /
-  管理 9084）；连接器目录骨架（ConnectorController）经网关可达、readiness 真实绿；M1 无持久 datasource（不接 PG）。
-  完整采集/计算（Flink/CDC/SeaTunnel）属 post-M1。
+  数据底座分系统子 chart。由 umbrella chart `platform` 按 `data-foundation.enabled` 聚合。
+  D5：子仓 services/data-foundation 交付 image，主仓 owns chart。提供 Deployment + Service（应用 8084 /
+  管理 9084）；连接器目录骨架经网关可达、readiness 真实绿。
+  M2（#63）：接 in-cluster PG 独立 db `datafoundation`（JPA+Flyway，数据源接入链持久层）+ D7 加密主密钥
+  经 K8s Secret 注入（`DS_SECRET_KEY`，绝不入库明文）。完整采集/计算（Flink/CDC/SeaTunnel）属后续。
 type: application
 
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
 
 keywords:
   - hashmatrix
