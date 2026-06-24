@@ -20,7 +20,7 @@ contracts:
     type: icd
     path: icd/governance-metadata-icd.md
     status: draft          # 消费方待对齐（ICD §5）
-    version: 0.1.0
+    version: 0.2.0          # +§2 写入面（资产登记/编辑）轮廓与租户语义（MINOR 加法，#56）
     producers: [hashmatrix-governance]
     consumers:
       - hashmatrix-security
@@ -73,7 +73,7 @@ contracts:
     type: openapi
     path: openapi/governance-metadata-v1.yaml
     status: draft          # governance 同步供数 REST（icd/governance-metadata §2 细化）
-    version: 1.0.0
+    version: 1.1.0          # +资产登记/编辑写入面 POST /api/meta/assets · PUT /{id}（MINOR 加法，#56）
     producers: [hashmatrix-governance]
     consumers:
       - hashmatrix-security

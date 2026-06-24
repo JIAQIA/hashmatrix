@@ -2,7 +2,7 @@
 id: icd/governance-metadata
 owner: hashmatrix-governance
 status: draft
-version: 0.1.0
+version: 0.2.0
 producers: [hashmatrix-governance]
 consumers: [hashmatrix-security, hashmatrix-webui, hashmatrix-data-foundation, hashmatrix-platform-common]
 since: 2026-06-18
@@ -30,6 +30,8 @@ since: 2026-06-18
 | 接口 | 方法 | 用途 | 主要消费方 |
 |--|--|--|--|
 | `/api/meta/search` | GET | 元数据检索 / 分面 | 资产门户、数据服务 |
+| `/api/meta/assets` | POST | **资产登记**（写入面，写当前租户） | 资产门户（webui 数据目录） |
+| `/api/meta/assets/{id}` | PUT | **资产编辑**（按 id 幂等，限本租户） | 资产门户（webui 数据目录） |
 | `/api/meta/detail/{id}` | GET | 资产详情聚合（含字段、归属、标签） | 资产门户 |
 | `/api/meta/lineage/{id}` | GET | 血缘 / 影响分析（表级 / 字段级） | 资产门户、BI、质量 |
 | `/api/perm/elements/{id}` | GET | 权限要素（用于安全中心判定，**透传不裁决**，DG4） | security / 资产门户 |
@@ -37,6 +39,11 @@ since: 2026-06-18
 | `/api/open/query` | POST | 开放查询（统一供数） | 集成 / 质量 / BI / 数据服务 |
 
 > 注：`/api/perm/*` 仅做**权限要素与状态透传**；分类分级策略与审批归 `security`（DG4/DG6）。
+
+> **写入面（v1.1.0 加法，#56）**：资产登记/编辑支撑 M2 数据目录·资产登记链。约定——
+> ① **读写 DTO 分离**：写侧 `AssetUpsertRequest`（仅可写字段 + 可扩展 `attributes` JSONB，R2），不复用读侧 `AssetSummary`；
+> ② **id 服务端生成**（UUID）：`POST` 登记发 id、`PUT /{id}` 按 id 幂等编辑；业务唯一键 `(tenant_id, code)` 去重；
+> ③ **租户隔离 fail-closed**（D9/D2）：`require_tenant=true`，缺 `X-Tenant-Id` 拒绝，写落 `tenant_id`、读强制过滤，非本租户 id → `404`；错误体沿用既有 `Error` schema。
 
 ## 3. 异步元数据变更事件（事件驱动）
 

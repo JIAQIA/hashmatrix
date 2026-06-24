@@ -1,13 +1,16 @@
 openapi: 3.1.0
 info:
   title: Governance · Metadata Supply API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     数据治理（`services/governance`）作为平台**元数据供数中枢**对外的**同步供数 REST 契约**：
-    元数据检索 / 资产详情 / 血缘 / 权限要素与状态 / 开放查询。被资产门户、
+    元数据检索 / 资产详情 / 血缘 / 权限要素与状态 / 开放查询，以及**资产登记/编辑（写入面）**。被资产门户、
     安全中心（`security`）、数据服务等多个子系统消费。本契约由 ICD 草案
     [`icd/governance-metadata`](../icd/governance-metadata-icd.md) §2 细化而来；异步变更事件见
     [`asyncapi/governance-metadata.yaml`](../asyncapi/governance-metadata.yaml)。
+
+    **v1.1.0（加法 MINOR）**：新增资产登记/编辑写入面（`POST /api/meta/assets`、`PUT /api/meta/assets/{id}`），
+    支撑 M2 数据目录·资产登记链（#56）；既有读侧端点不变。
 
     **边界（DG3/DG4）**：元数据只出索引 + API，消费方不直连 governance 内部库；`/api/perm/*`
     仅做**权限要素与状态透传，不裁决**（分类分级策略与审批归 `security`）。
@@ -34,6 +37,8 @@ security:
 tags:
   - name: metadata
     description: 元数据检索与详情
+  - name: catalog-write
+    description: 资产登记 / 编辑（写入面，租户隔离）
   - name: lineage
     description: 血缘 / 影响分析
   - name: permission
@@ -83,6 +88,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MetaSearchResult"
+  /api/meta/assets:
+    post:
+      tags: [catalog-write]
+      summary: 登记元数据资产
+      description: |
+        手动登记一条元数据资产，写入**当前租户**（D9：写时落 `tenant_id`）。
+        **租户隔离**（`require_tenant=true`）：活动租户由网关注入的 `X-Tenant-Id` **唯一**确定；
+        缺租户头 → fail-closed 拒绝（网关层 `401/400`，不在本契约枚举）。
+        **id 服务端生成**（UUID）——请求体**不含 id**；返回体携带服务端所发 id。
+        业务唯一键 `(tenant_id, code)`：同租户同 `code` 视为重复 → `409`（`code` 可选，省略则不做去重）。
+      operationId: registerAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpsertRequest"
+      responses:
+        "201":
+          description: 已登记，返回资产摘要（含服务端所发 id）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/meta/assets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AssetId"
+    put:
+      tags: [catalog-write]
+      summary: 编辑元数据资产（按 id 幂等）
+      description: |
+        按 `id` 全量更新一条**本租户**资产（D9：读写均强制租户过滤；非本租户 `id` → `404`，不越权改他租户）。
+        幂等：以路径 `id` 寻址，重复提交同一请求结果一致。`tenant_id` 不可改（由租户上下文恒定）。
+      operationId: updateAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpsertRequest"
+      responses:
+        "200":
+          description: 已更新，返回资产摘要
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/meta/detail/{id}:
     parameters:
       - $ref: "#/components/parameters/AssetId"
@@ -234,6 +296,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Conflict:
+      description: 业务唯一键冲突（同租户同 code 已存在）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     AssetType:
       type: string
@@ -260,6 +328,41 @@ components:
           items:
             type: string
           example: [finance]
+    AssetUpsertRequest:
+      type: object
+      description: |
+        资产登记/编辑的**写入面 DTO**（读写分离：不复用读侧 `AssetSummary`，只含可写字段）。
+        `id` 不在此处——登记时服务端生成、编辑时由路径携带。`tenant_id` 不在此处——由租户上下文恒定（D9）。
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          description: 资产名
+          example: orders
+        type:
+          $ref: "#/components/schemas/AssetType"
+        owner:
+          type: string
+          description: 归属（团队 / 责任人占位）
+          example: data-team
+        code:
+          type: string
+          description: 业务编码；与租户构成业务唯一键 `(tenant_id, code)` 做登记去重，省略则不去重。
+          example: orders
+        tags:
+          type: array
+          items:
+            type: string
+          example: [finance, core]
+        attributes:
+          type: object
+          additionalProperties: true
+          description: |
+            可扩展属性（JSONB）。预留自研元模型引擎（#12）的 typedef 驱动自定义属性，按 R2 可扩展设计，
+            避免引擎落地返工。消费方 tolerant reader：忽略未知键。
+          example:
+            sourceSystem: demo
+            rowCountHint: 1000
     MetaSearchResult:
       type: object
       required: [items, page, pageSize, total]
