@@ -190,6 +190,28 @@ data:
             rejected_code: 429
             policy: local
             allow_degradation: true
+      # 组织成员自管理（租户自管理面 · #57 契约 /v1/org/members）：成员邀请/移除经 control-plane 编排 Keycloak Org membership。
+      # ⚠️ priority 11 > control-plane-api(10)：确保 /api/v1/org/members* **不被** /api/v1/* 跨租户管理路由抢走——
+      #    后者 require_tenant=false（superadmin 跨租户面），而成员面是**租户自管理** → 必须 require_tenant=true。
+      # ✅ 不覆盖 tenant-context → 继承 auth-tenant 默认 require_tenant=true（无租户身份 fail-closed 403，与数据面一致）。
+      # 后端全路径 /api/v1/org/members（control-plane @RequestMapping("/api/v1/..."），无 strip）；用 uris 数组覆盖 bare + 子路径。
+      # 🛡 R3：成员 SoT 在 Keycloak Org，control-plane 仅经 KC Admin API 编排，不另建成员凭据实体。
+      - id: control-plane-members-api
+        name: control-plane-members-api
+        desc: "组织成员自管理（租户自管理 · require_tenant=true，区别于 /api/v1/* 跨租户管理面）"
+        uris: ["/api/v1/org/members", "/api/v1/org/members/*"]
+        priority: 11
+        upstream_id: control-plane-upstream
+        plugin_config_id: auth-tenant
+        plugins:
+          limit-count:
+            count: {{ .Values.rateLimit.count }}
+            time_window: {{ .Values.rateLimit.timeWindow }}
+            key_type: var
+            key: tenant_id
+            rejected_code: 429
+            policy: local
+            allow_degradation: true
       # data-foundation 受保护路由：复用 auth-tenant 链，路由到数据底座。
       # 后端 ConnectorController 服务全路径 /api/connectors/...（无 context-path）→ 不剥前缀。
       # 同时匹配 bare `/api/connectors`（= ConnectorController.list() 端点）与子路径 `/api/connectors/*`
